@@ -1,0 +1,25 @@
+// Adaptive score timing, mixing and field-drum lifecycle; no audio device required.
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+let audioNow=1,wall=1000,timerId=0;const timers=new Map(),automation=[];
+function param(){return {value:1,...Object.fromEntries(['setValueAtTime','linearRampToValueAtTime','exponentialRampToValueAtTime','setTargetAtTime','cancelScheduledValues'].map(k=>[k,function(...a){assert(a.every(Number.isFinite));if(k==='exponentialRampToValueAtTime')assert(a[0]>0);automation.push([this,k,...a]);return this}]))}}
+function node(){return {connect(){},gain:param(),frequency:param(),Q:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),start(t){assert(Number.isFinite(t))},stop(t){assert(Number.isFinite(t))}}}
+class AudioContext{constructor(){this.sampleRate=8000;this.state='running';this.destination=node()}get currentTime(){return audioNow}createGain(){return node()}createDynamicsCompressor(){return node()}createBiquadFilter(){return node()}createConvolver(){return node()}createWaveShaper(){return node()}createOscillator(){return node()}createBufferSource(){return node()}createStereoPanner(){return node()}createBuffer(ch,n){const data=Array.from({length:ch},()=>new Float32Array(n));return{getChannelData:i=>data[i]}}}
+const ctx={Math,Float32Array,window:{AudioContext},PREFS:{sound:true,musicVol:65,effectsVol:75},UI:{headless:false},BV:null,document:{addEventListener(){},getElementById:()=>({hidden:true})},performance:{now:()=>wall},setInterval:fn=>{timers.set(++timerId,fn);return timerId},clearInterval:id=>timers.delete(id),drumming:(B,r)=>r.drumUntil>B.t&&r.men.some(m=>m.alive&&m.role==='drum')};vm.createContext(ctx);vm.runInContext(fs.readFileSync('game/sound.part.js','utf8')+'\nglobalThis.sound=SND;',ctx);const S=ctx.sound;
+S.init();assert(S.ctx);const drummer={alive:true,role:'drum'},r={n:10,moving:true,men:[drummer]},v={B:{regs:[r],t:1}};ctx.BV=v;S.syncBattle(v);S.music(true,true);assert.equal(timers.size,1);S.music(true,true);assert.equal(timers.size,1);
+// Run the actual synthesizers once to catch invalid Web Audio parameters.
+for(let i=0;i<64;i++)S.musicStep(1+i*.26,'battle',i,.26);S.cannon();S.volley();S.explosion();S.preview();assert(automation.length>100);
+const originalTone=S.tone,events=[];for(const fn of ['tone','noise'])S[fn]=(...args)=>events.push([fn,...args]);
+S.fieldDrum(10,.2);assert(events.some(e=>e[0]==='tone'&&e[2]<150&&e[3]>=.3&&e[6]<70),'Drum needs a low, sustained membrane resonance');assert(events.every(e=>e[e[0]==='tone'?7:7]==='drum'));
+events.length=0;ctx.PREFS.musicVol=0;S.setLevels();S.musicStep(20,'battle',0,.26);assert(events.some(e=>e[7]==='drum'),'Battle sounds retain live drums when music is muted');assert.equal(S.bus('drum'),S.drumBus);assert.notEqual(S.bus('music'),S.drumBus);
+r.moving=false;r.forming=true;S.syncBattle(v);assert(S.battleState.marching,'Forming ranks must sound their drummer');r.forming=false;r.moving=true;
+// No independent animation-frame cadence: all march hits land on the score clock.
+const atStep=events.filter(e=>e[7]==='drum');assert(atStep.every(e=>e[1]===20));
+r.drumUntil=10;S.syncBattle(v);events.length=0;S.musicStep(21,'battle',7,.26);assert(events.some(e=>e[7]==='drum'&&Math.abs(e[1]-21.13)<1e-8),'Rally has an eighth-beat pickup');
+drummer.alive=false;S.syncBattle(v);events.length=0;S.musicStep(22,'battle',0,.26);assert(!events.some(e=>e[7]==='drum'),'Lost drummers must stop');
+drummer.alive=true;v.paused=true;S.syncBattle(v);events.length=0;S.musicStep(23,'battle',0,.26);assert(!events.some(e=>e[7]==='drum'));assert(events.every(e=>e[0]==='tone'&&e[7]==='music'),'Pause keeps only the quiet harmony');
+v.paused=false;S.syncBattle(v);audioNow=30;S.heat=0;S.combatPulse(.8);assert.equal(S.combatHeat(30),.8);assert(S.combatHeat(40)<.12);S.combatPulse(.8);assert.equal(S.heat,1);
+events.length=0;S.musicStep(30,'battle',2,.26);const busy=events.length;S.heat=0;events.length=0;S.musicStep(30,'battle',2,.26);assert(busy>events.length,'Firing adds musical accompaniment');
+const volume=S.musicBus.gain;automation.length=0;S.duckMusic();assert(!automation.some(e=>e[0]===volume),'Gunfire ducking must not override volume preference');assert(automation.some(e=>e[0]===S.musicDuck.gain));
+v.B.done=true;S.syncBattle(v);events.length=0;S.musicStep(31,'battle',0,.26);assert(!events.some(e=>e[7]==='drum'));
+S.music(true,false);assert.equal(timers.size,1);assert.equal(S.mode,'campaign');assert.equal(S.heat,0);S.music(false);assert.equal(timers.size,0);
+console.log('Sound: deep drum synthesis, shared march/rally clock, intensity/decay, pause/end/drummer loss, separate volumes, ducking and scheduler lifecycle pass.');

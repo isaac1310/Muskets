@@ -1,0 +1,98 @@
+[
+  {
+    "name": "Prussia",
+    "mapColour": "#2a4a8c",
+    "borderColour": "#152a57",
+    "coat": "#223a6e",
+    "facings": "#c9a55c",
+    "ruler": "Frederick II, King in Prussia",
+    "generals": [
+      "Schwerin",
+      "Zieten",
+      "Seydlitz",
+      "Keith",
+      "Leopold of Dessau"
+    ]
+  },
+  {
+    "name": "Britain",
+    "mapColour": "#b8372c",
+    "borderColour": "#7a1f18",
+    "coat": "#b3261e",
+    "facings": "#2b4c9b",
+    "ruler": "George II, King of Great Britain",
+    "generals": [
+      "Cumberland",
+      "Ligonier",
+      "Wolfe",
+      "Granby",
+      "Stair"
+    ]
+  },
+  {
+    "name": "France",
+    "mapColour": "#7fb2e0",
+    "borderColour": "#3f74a8",
+    "coat": "#8fb9e2",
+    "facings": "#b3261e",
+    "ruler": "Louis XV, King of France",
+    "generals": [
+      "Saxe",
+      "Belle-Isle",
+      "Broglie",
+      "Soubise",
+      "Chevert"
+    ]
+  },
+  {
+    "name": "Austria",
+    "mapColour": "#9a9ea6",
+    "borderColour": "#5d6168",
+    "coat": "#e2e1db",
+    "facings": "#b3261e",
+    "ruler": "Maria Theresa, Queen of Hungary and Bohemia, Archduchess of Austria",
+    "generals": [
+      "Daun",
+      "Browne",
+      "Laudon",
+      "Lacy",
+      "Khevenhüller"
+    ]
+  },
+  {
+    "name": "Russia",
+    "mapColour": "#3f7a3a",
+    "borderColour": "#24491f",
+    "coat": "#2f5e2c",
+    "facings": "#b3261e",
+    "ruler": "Elizabeth, Empress of All the Russias",
+    "generals": [
+      "Saltykov",
+      "Apraksin",
+      "Fermor",
+      "Rumyantsev",
+      "Münnich"
+    ]
+  },
+  {
+    "name": "Sweden",
+    "mapColour": "#e2b53a",
+    "borderColour": "#2a5aa8",
+    "coat": "#2a5aa8",
+    "facings": "#e2b53a",
+    "ruler": "Frederick I, King of Sweden",
+    "generals": [
+      "Lewenhaupt",
+      "Buddenbrock",
+      "Ehrensvärd",
+      "Lantingshausen",
+      "Hamilton"
+    ]
+  },
+  {
+    "name": "Free cities",
+    "mapColour": "#8a5a32",
+    "borderColour": "#5a3a1e",
+    "coat": "#6b4a2e"
+  }
+]
