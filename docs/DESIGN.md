@@ -69,10 +69,10 @@ One resource, **gold**, plus **people** (needed to recruit) and **popularity**.
 | Sawmill | 20 | forest | 2 + size |
 | Iron mine | 30 | hills | 3 + size |
 | Market | 45 | plains, hills | 3 + size, and boosts trade roads |
-| Houses | 20 | plains, forest | room for 6 people |
+| Houses | 20 | plains, forest | room for 6 people; raise civilian militia |
 | Church | 50 | plains, hills | +3 popularity |
-| Barracks | 55 | any land | recruit militia, infantry, dragoons |
-| Cannon foundry | 80 | plains, hills | cast field guns and howitzers |
+| Barracks | 55 | any land | line infantry; level 2 unlocks dragoons |
+| Cannon foundry | 80 | plains, hills | field guns; level 2 unlocks howitzers |
 | Wooden fort | 35 | any land | palisade + 1 gun, defence ×1.3 |
 | Stone star fort | 90 | any land | bastions + 2 guns, defence ×1.6 |
 | Capital | none | none | +8 gold, room for 12, walls + 3 militia + 1 gun |
@@ -93,12 +93,12 @@ One resource, **gold**, plus **people** (needed to recruit) and **popularity**.
 
 | Unit | Cost | Pay | Raised at | Strength | Good against |
 |---|---|---|---|---|---|
-| Militia | 5 + 1 person | .15 | capital, barracks, town, village, city | 1.8 | nothing (cheap filler) |
+| Militia | 3 gold + 1 person + 2 popularity | .15 | houses, capital, town, village, city | 1.8 | nothing (cheap filler) |
 | Line infantry | 10 + 1 | .3 | capital, barracks, town | 3 | horse, militia |
-| Dragoons | 20 + 1 | .5 | barracks | 4 | guns, howitzers |
+| Dragoons | 20 + 1 | .5 | level 2 barracks | 4 | guns, howitzers |
 | Russian hussars | 30 | 1 | hired (mercenaries) | 4.5 | guns, howitzers |
 | Field guns | 26 + 1 | .5 | foundry | 4 | infantry |
-| Howitzers | 32 + 1 | .6 | foundry | 3.5 | walls, massed troops |
+| Howitzers | 32 + 1 | .6 | level 2 foundry | 3.5 | walls, massed troops |
 
 **Generals**:
 - **Appointing**: any army standing in your land can be given a named general for 60 gold. Each nation has five.
@@ -378,7 +378,7 @@ Validation: all eight automated checks, including `tools/battle_feel_check.js` f
 ## Battle reactions and formation commands — 8 October 2026
 
 - Hits record their direction and trigger a short body recoil and wound flash, including the opening of a fatal fall. Foot charges articulate the legs beneath the bayonet pose, with stronger stride, body lean and bounce; mounted charges also lean and bounce with the gallop.
-- Form line and March column preserve the battalion anchor while figures walk into their assigned places. Selected formations show destination slots and forming progress. Live drummers play during deployment. Fire waits at least 2.6 simulation seconds and until 90% of surviving figures are within four field units of their assigned places. Close combat interrupts the deployment state.
+- Form line and March column preserve the current order and destination while figures walk into their assigned places. With Hold position, the battalion anchor stays still; Advance continues after forming. Selected formations show destination slots and forming progress. Live drummers play during deployment. Fire waits at least 2.6 simulation seconds and until 90% of surviving figures are within four field units of their assigned places. Close combat interrupts the deployment state.
 - Fire when ready explicitly selects line formation, clears movement orders and holds position. It chooses an unobstructed enemy in musket range when available, respects reload time and friendly masking, and never advances or automatically storms a nearby gun.
 - Empty-ground and outside taps clear selection. Move to… explicitly arms destination placement; dragging formations still works. Buttons, tactical pause, zoom and the command panel do not cancel selection.
 
@@ -402,3 +402,23 @@ Validation: simulation checks for gradual formation changes, completed deploymen
 These are game paces, chosen to distinguish battlefield roles. One per-type range function controls actual firing, distance-based accuracy, approach/holding distances, column-to-line deployment, Fire when ready targeting and out-of-range advice. Selected troops show their range. Hussar pistols stay at 45, field guns at 200 and howitzers at 240. Reload times and base damage are unchanged.
 
 Validation: exact/inside/outside firing boundaries for both sides; approach into each unit's firing range; infantry outranging militia; Fire when ready choosing an available in-range target; range advice and unchanged artillery/hussar values. Existing orders, bayonets, campaign integration, startup and battle completion checks pass.
+
+
+## Campaign development, intelligence and battle control — 8 October 2026
+
+- Recruitment is paid up front (gold and one person; militia also costs 2 popularity). Militia take 1 season; line infantry 2; dragoons and field guns 3; howitzers 4. Training runs in parallel, joins the army at the recruiting province, and begins upkeep on arrival. Hired hussars remain immediate. Enemy occupation delays arrival; capture destroys training immediately, even if recaptured. Rival recruitment follows the same timing.
+- Construction takes 1 season for farms, sawmills, houses and wooden forts; 2 for mines, markets, churches and barracks; 3 for foundries and stone forts. One project per province. Existing buildings remain active during upgrades. Capture or revolt loses unfinished work without a refund; occupied sites wait to complete. Progress bars in Orders and Realm expose elapsed/total seasons and percentage, with accessible progress semantics.
+- Level 2 barracks unlock dragoons, never artillery. Basic foundries cast field guns; level 2 unlocks howitzers. Level 2 upgrades take 2 seasons and cost 65% of the base cost rounded up (36 gold for barracks, 52 for foundries). Economic upgrades add 50% building income; housing capacity and church popularity double. Villages become towns for 60 gold over 2 seasons; wooden forts become stone forts for 65 gold over 3 seasons. Stone forts have no further upgrade. Existing v4 buildings default to level 1 and existing armies remain intact.
+- Orders and Realm explain cannon recruitment and offer a direct shortcut to a foundry, its construction site, or suitable empty owned land. A field gun costs 26 gold and one person, with 3 seasons of training.
+- Built roads coexist with buildings, cost 20 gold, and take 1 season. A move between adjacent completed road provinces costs 0.5 movement points, giving foot/gun armies up to 2 and mounted armies up to 4 such moves each season. Combat costs 1 and ends movement; rivers still end movement. Only completed roads affect travel. Roads are visible on the map. Caravan trade paths remain a separate system and do not require road construction.
+- Before a player attack, Cancel attack preserves troops at their starting province and ends movement, including when a detachment was selected. When attacked, a field army can withdraw to an empty friendly adjacent province other than the attacker's origin. It loses no troops but surrenders the province and garrison. No retreat is offered without a safe destination. Battle settings do not bypass this decision; headless simulations continue automatically.
+- Enemy map counters and diplomacy no longer disclose exact strengths. A spy mission against a selected foreign army costs 20 gold, with 75% success and one attempt per army per season. Capture provides no new report, loses the payment and reduces bilateral relations by 15. Successful intelligence is a saved snapshot of composition, strength, province and season; it never silently updates with reinforcements and is marked outdated after 2 seasons. Diplomacy provides army scouting shortcuts. AI's existing strategic evaluation retains full information.
+- Envoys improve a crown's relations or a free city's goodwill by up to 10 for 10 gold, once per target per season, while peaceful. Independent cities accept trade at 20 goodwill if a land path connects them to the capital. Open city routes earn 2–6 gold/season; hostile armies block them, war with a protector suspends them, and direct city war or conquest ends the pact. City gifts and protection remain separate actions.
+- Incoming peace offers support Accept peace, Reject, or gold demands (up to 25, 50 or 100, limited by the rival's treasury). Acceptance depends on treasury and relative strength: min(treasury, floor(35% treasury + 2 × positive player strength advantage)). Refusal preserves the original offer. Acceptance transfers the payment exactly once and signs peace. Stable sender/type matching prevents stale clicks answering a different envoy. Empty reports now close after the last refusal; every report includes a return-to-orders button.
+- Battle orders and formation choices are independent. Form line / March column / Automatic do not clear an Advance order or explicit destination. Hold position plus a formation choice forms in place. Fire when ready explicitly requests a line and halts. Fix bayonets still clears movement and pauses fire for preparation. The panel separates troop selection, formation, orders, and support actions; active choices and short command explanations are visible, with Pause always outside the scrolling panel.
+- Painted action changes blend over 0.24 seconds, fast walk/gallop frames over 0.085 seconds, and howitzer deployment over 0.45 seconds. Movement/charge lean, gun crew work, gun movement and drummer tempo ease between states using simulation time. Support figures and mounted commanders articulate their strides. Pausing freezes transitions. These are canvas sprite/procedural transitions, not a new graphics engine.
+
+Validation: campaign options/expansion, peace/levy/animation, engagement, battle controls, bayonets, battle feel, visual spacing, gun crew, firing range and startup checks; a 12-season headless campaign completed without errors. Browser checks covered militia costs, two recruitment durations, foundry construction and cannon recruitment during upgrades, progress bars, independent formation/Advance selection, phone controls, spy capture and peace rejection/refused/accepted reparations. Long-campaign balance and physical-phone animation performance still need playtesting.
+
+
+Strategy-map selection can be cancelled by tapping the selected army's province again, choosing Deselect army, or pressing Escape with the map active. Deselecting clears movement highlights and half-army mode without spending moves. Diplomacy now includes a collapsible military-power ranking and comparison bars: player power is exact; rival power rounds to 10, equal estimates share a rank, and each entry lists controlled provinces. This compares field armies; spy reports remain the source of exact rival army composition.

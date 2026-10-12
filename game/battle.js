@@ -9,7 +9,7 @@ const isHorse=t=>t==='cav'||t==='hus',isGun=t=>t==='art'||t==='how',isFoot=t=>t=
 const firingRange=r=>r.type==='inf'?BT.infRange:r.type==='mil'?BT.milRange:r.type==='cav'?BT.carbine:r.type==='hus'?BT.pistol:r.type==='art'?BT.artRange:r.type==='how'?BT.howRange:0;
 const grp=t=>isFoot(t)?'foot':isHorse(t)?'horse':isGun(t)?'guns':'gen';
 const WALLS={fort:{cover:.6,hp:100},palisade:{cover:.8,hp:60},capital:{cover:.85,hp:100}};
-const ORDN={stand:'Stand',ready:'Fire when ready',advance:'Advance',hold:'Hold the line',dig:'Dig in',charge:'Charge!',flank:'Flank',shoot:'Shoot',wait:'Wait',auto:'At will',fire:'Bombard',counter:'Counter-battery',walls:'Target the walls'};
+const ORDN={stand:'Hold position',ready:'Fire when ready',advance:'Advance',hold:'Hold the line',dig:'Dig in',charge:'Charge!',flank:'Flank',shoot:'Shoot',wait:'Wait',auto:'At will',fire:'Bombard',counter:'Counter-battery',walls:'Target the walls'};
 const ORDS={foot:['stand','ready','advance','hold','dig','charge','flank'],horse:['wait','charge','shoot','flank'],guns:['stand','fire','counter','walls']};
 const menOfU=u=>u.mil*MEN.mil+u.inf*MEN.inf+u.cav*MEN.cav+u.hus*MEN.hus+(u.art+u.how)*6;
 const ORDINAL=n=>n+(n%10===1&&n!==11?'st':n%10===2&&n!==12?'nd':n%10===3&&n!==13?'rd':'th');
@@ -127,7 +127,7 @@ function fixingBayonets(B,r){return !!(r.fixUntil>B.t&&!r.broken&&B.routing!==r.
 function canFixBayonets(B,r){return !!(isFoot(r.type)&&r.n&&!r.bayonetsFixed&&!r.fixUntil&&!r.broken&&!r.melee&&!drumming(B,r)&&!B.done&&B.routing<0&&!B.regs.some(e=>e.side!==r.side&&e.n&&Math.hypot(e.x-r.x,e.y-r.y)<28))}
 function fixBayonets(B,r,hold=true){
   if(!canFixBayonets(B,r))return false;
-  orderFormation(r,'line');r.fixUntil=B.t+3;r.fixStarted=B.t;r.forced=null;if(hold)r.ord='stand';
+  orderFormation(r,'line');r.goal=null;r.bayonet=false;r.fixUntil=B.t+3;r.fixStarted=B.t;r.forced=null;if(hold)r.ord='stand';
   battleEvent(B,`${r.label}: fix bayonets — halt and cease fire for 3 seconds.`);return true;
 }
 function bayonetBraced(B,r){return !!(isFoot(r.type)&&r.bayonetsFixed&&!r.broken&&B.routing!==r.side&&r.mor>=30&&r.form==='line'&&!r.forming&&r.formT>=2.6&&!r.goal&&!r.moving&&['stand','hold','ready','dig'].includes(ordOf(B,r)))}
@@ -177,7 +177,7 @@ function changeFormation(r,form){
   }
   for(const m of r.men){const q=form==='line'?m.l:m.c;m.ox=q[0];m.oy=q[1]}
 }
-function orderFormation(r,form){r.formOrder=form;r.goal=null;r.bayonet=false;changeFormation(r,form)}
+function orderFormation(r,form){if(!isFoot(r.type)||!['line','column','auto'].includes(form))return;if(form==='auto'){r.formOrder=null;return}r.formOrder=form;changeFormation(r,form)}
 function ordOf(B,r){return r.ord||B.orders[r.side][grp(r.type)]}
 function pickTarget(B,r){
   if(r.forced&&r.forced.n)return r.forced;
