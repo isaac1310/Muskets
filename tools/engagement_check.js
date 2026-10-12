@@ -5,7 +5,7 @@ const noop=new Proxy(function(){},{get:(_,k)=>k==='measureText'?()=>({width:40})
 const el=id=>els[id]||(els[id]={id,innerHTML:'',textContent:'',hidden:true,style:{},dataset:{},disabled:false,clientWidth:400,clientHeight:700,value:'gold',classList:{add(){},remove(){},toggle(){}},setAttribute(){},addEventListener(n,f){elementHandlers[id+'-'+n]=f},getContext:()=>noop,getBoundingClientRect:()=>({left:0,top:0})});
 const ctx={console,Math,Date,Set,Map,Promise,Uint8Array,Blob,URL,atob,setTimeout:()=>0,clearTimeout(){},clearInterval(){},setInterval:()=>0,document:{getElementById:el,createElement:()=>el('generated'+Math.random()),addEventListener:(n,f)=>{(docHandlers[n]||(docHandlers[n]=[])).push(f);handlers[n]=f}},window:{},location:{hash:'',protocol:'file:'},innerWidth:400,innerHeight:800,devicePixelRatio:1,addEventListener(){},requestAnimationFrame(){},performance:{now:()=>Date.now()},localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v,removeItem:k=>delete storage[k]}};
 let src=fs.readFileSync(path.join(root,'game/script.js'),'utf8').replace('/*__BATTLE__*/',fs.readFileSync(path.join(root,'game/battle.js'),'utf8')).replace('/*__SOUND__*/',fs.readFileSync(path.join(root,'game/sound.part.js'),'utf8'));
-src=src.replace('/*__TEST__*/',`globalThis.test={get S(){return S},set S(v){S=v},get M(){return M},set BV(v){BV=v},UI,newGame,showHome,chooser,start,save,capture,tickRecoveries,checkOver,capitalOf,income,recruit,resetMoves,moveArmy,canStep,nbrs,declareWar,armyRecord,generalRecord,appointGeneral,recordEngagement,removeArmy,contextualHelp,historyPanel,makeBattle,kill,battleAdvice,battleExplanation,strike,masked,stepBattle,runToEnd,renderBattleUI,finishBattle,zeroU,OPENINGS};UI.headless=true;`);
+src=src.replace('/*__TEST__*/',`globalThis.test={get S(){return S},set S(v){S=v},get M(){return M},set BV(v){BV=v},UI,newGame,showHome,chooser,start,save,capture,tickRecoveries,checkOver,capitalOf,income,recruit,tickRecruitment,resetMoves,moveArmy,canStep,nbrs,declareWar,armyRecord,generalRecord,appointGeneral,recordEngagement,removeArmy,contextualHelp,historyPanel,makeBattle,kill,battleAdvice,battleExplanation,strike,masked,stepBattle,runToEnd,renderBattleUI,finishBattle,zeroU,OPENINGS};UI.headless=true;`);
 vm.createContext(ctx);vm.runInContext(src,ctx);const t=ctx.test;
 const click=async(act,extra={})=>handlers.click({target:{closest:()=>({dataset:{act,...extra}})}});
 const fresh=(opening='balanced')=>{t.newGame('normal',0,opening);return t.S};
@@ -23,7 +23,7 @@ function recoveryFixture(){const s=fresh(),p=s.prov.findIndex(x=>x.o===0&&x.b===
   // Mounted opening actually grants two marches, until infantry joins it.
   s=fresh('mounted');assert.equal(s.armies[0].mv,2);let a=s.armies[0];
   let p=t.nbrs(a.p).find(i=>t.canStep(0,i));assert(p!=null);s.prov[p].r=false;await t.moveArmy(a,p);assert.equal(a.mv,1);
-  s.prov[p].b='barracks';t.recruit(0,p,'inf');assert.equal(a.mv,0);t.resetMoves();assert.equal(a.mv,1);
+  s.prov[p].b='barracks';t.recruit(0,p,'inf');assert.equal(a.mv,1);s.turn+=2;t.tickRecruitment();assert.equal(a.mv,0);t.resetMoves();assert.equal(a.mv,1);
   // Losing a capital preserves the realm and offers exactly three full subsequent seasons.
   let f=recoveryFixture();assert(f.r);assert(f.s.fac[0].alive);assert.equal(t.capitalOf(0),f.r.refuge);assert(t.income(0).popCap>=12);assert(t.recruit(0,f.r.refuge,'inf'));
   t.tickRecoveries();assert.equal(f.r.left,3);for(let i=0;i<2;i++){f.s.turn++;t.tickRecoveries();assert(f.s.fac[0].alive)}
@@ -56,7 +56,10 @@ function recoveryFixture(){const s=fresh(),p=s.prov.findIndex(x=>x.o===0&&x.b===
   const destination={...r.goal};elementHandlers['bcv-click']({clientX:5,clientY:5});assert.equal(v.sel.length,0);assert.deepEqual(r.goal,destination);
   v.sel=[r];docHandlers.click[0]({target:{closest:()=>null}});assert.equal(v.sel.length,0);
   v.sel=[r];docHandlers.click[0]({target:{closest:()=>({})}});assert.equal(v.sel.length,1,'Controls do not clear selection');
-  await click('bform',{v:'column'});assert.equal(r.form,'column');assert(r.forming);assert.equal(r.goal,null);
+  await click('bform',{v:'column'});assert.equal(r.form,'column');assert(r.forming);assert.deepEqual(r.goal,destination,'Formation keeps the destination');
+  await click('bo',{g:'sel-foot',v:'advance'});assert.equal(r.ord,'advance');assert.equal(r.formOrder,'column');
+  await click('bform',{v:'line'});assert.equal(r.ord,'advance','Formation must preserve Advance');assert.equal(r.formOrder,'line');
+  await click('bo',{g:'sel-foot',v:'stand'});await click('bform',{v:'column'});assert.equal(r.ord,'stand','Formation alone must not advance');
   await click('bo',{g:'sel-foot',v:'ready'});assert.equal(r.form,'line');assert.equal(r.ord,'ready');assert.equal(r.formOrder,'line');
   assert(els.bctl.innerHTML.includes('Fire when ready'));assert(els.bctl.innerHTML.includes('Form line'));
   await click('bfix');assert(r.fixUntil>b.t);assert.equal(r.ord,'stand');assert(els.bctl.innerHTML.includes('id="bfix"'));assert.equal(els.bfix.textContent,'Fixing bayonets…');

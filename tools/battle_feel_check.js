@@ -32,7 +32,7 @@ const v=view(),man=r.men[2];ctx.body(v,man,{kind:'musket'});assert.equal(v.dead.
 const blast=view();ctx.body(blast,man,{kind:'shell',x:man.x-10,y:man.y});const f=blast.falls[0];assert(f.dead.x>man.x);ctx.tickFx(blast,.5);assert(ctx.fallPose(f).lift>10);ctx.tickFx(blast,1);assert.equal(blast.dead.length,1);assert.equal(blast.falls.length,0);
 // Loaded-sprite paths must render walking cavalry, drummers and falling figures too.
 const N={coat:'#123',col:'#234'},im={complete:true,naturalWidth:30,naturalHeight:60};ctx.UNIT_IMAGES=new Proxy({}, {get:()=>im});ctx.NATIONS=[N];ctx.BV={B};ctx.BT={infReload:6.4,howReload:11.5,artReload:9.5};ctx.drawBattleFlag=()=>{};
-vm.runInContext(src.slice(src.indexOf('function drawPaintedFig('),src.indexOf('function drawFigDetails(')),ctx);
+vm.runInContext(src.slice(src.indexOf('function figurePose('),src.indexOf('function drawFigDetails(')),ctx);
 const canvas=new Proxy({}, {get:()=>()=>{}});
 for(const type of ['inf','mil','cav','hus','gen','art','how'])for(const role of ['', 'drum','flag','officer'])ctx.drawPaintedFig(canvas,{ox:0,x:200,rank:0,gait:3,walk:1,role},{type,moving:true,hs:'ready',mor:80},N,1,2);
 ctx.drawFall(canvas,f,200,200,1);

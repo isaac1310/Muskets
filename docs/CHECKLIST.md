@@ -196,3 +196,23 @@ Preview evidence: `review-engagement-phone.png`. No ambition system, scripted ca
 
 - [x] Distinct firing ranges: line infantry 130, militia 105, dragoons 80; movement, targeting, advice and selection readouts use the same range values
 - [x] Firing-range boundaries and approach distances checked for both sides
+
+
+## Campaign expansion and command clarity — 8 October 2026
+
+- [x] Timed recruitment, saved queues and progress bars; arrivals at the original province
+- [x] Timed buildings, upgrades, retained output during work, capture loss and migration
+- [x] Level 2 barracks → dragoons; foundry → field guns; level 2 foundry → howitzers
+- [x] Cannon recruitment help and direct site navigation; browser-tested cannon recruitment
+- [x] Houses/settlements levy militia for 3 gold, 1 person and 2 popularity; no barracks militia
+- [x] Independent-city trade and paid improve-relations envoys
+- [x] Connected built roads halve peaceful travel cost and coexist with buildings
+- [x] Pre-battle attack cancellation and safe defensive withdrawal
+- [x] Paid spy reports, capture/relations risk, dated snapshots and cooldown
+- [x] Peace popup accept/reject, final-message dismissal, stale-click protection and reparations negotiation
+- [x] Independent formation and movement commands; active controls and short explanations
+- [x] Action-pose blends, smoothed crew/commander/drummer movement; pause-safe timing
+- [x] Behaviour checks and a 12-season campaign; desktop and phone-sized browser verification
+- [ ] Extended campaign balance and physical-phone performance playtests
+
+Evidence: `screenshots/campaign-progress.png`, `screenshots/battle-formation-orders.png`, `screenshots/peace-negotiation.png`.
