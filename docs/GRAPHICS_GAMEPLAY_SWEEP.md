@@ -123,3 +123,72 @@ Earlier sweep evidence:
 - [River and forest](screenshots/sweep-river-desktop.jpg)
 
 **Implementation complete; external acceptance remains.** The actionable findings are implemented and covered by automated and browser checks. Physical-phone and human playtesting are explicitly unverified.
+
+## Follow-up: howitzers and combat effects (15 October 2026)
+
+- Howitzer help now gives the level 2 foundry upgrade cost/time and the recruitment cost/time, and links directly to a qualifying foundry when available. The full route from empty land was checked: 80 gold/3 seasons to build, 52 gold/2 seasons to upgrade, 32 gold/1 person/4 seasons to recruit. Start recruitment with at least 3 people available. Total construction and training: 164 gold and 9 seasons, excluding upkeep.
+- Infantry standard bearers previously used a static painted flag and skipped the animated cloth renderer. They now use animated cloth, with stronger flutter while moving and a stable per-figure phase.
+- Cannon hits now emit bounded, tumbling fragments: earth at ground/troop impacts, wood from carriages/houses/palisades, stone at stone walls, and metal when guns break. Surviving gun hits also produce splinters. Roundshot casualties receive a directional falling animation.
+- Ordinary falls now emit blood trails as well as blast falls. Blood has stronger contrast, is drawn after smoke, and leaves a pool that spreads briefly on landing.
+- Infantry/militia charges have longer strides, rotating legs, body lift and stronger lean; mounted charges articulate all four legs. All new effects use simulation time and stop while paused.
+
+Validation: all 15 automated checks passed, four short campaigns completed with zero errors, and the standalone/offline builds were regenerated. The final recruitment-help revision passed its focused campaign check. New checks cover ordinary falling blood, pool growth, particle materials/caps/expiration/pause, surviving gun impacts, loaded-asset flag rendering, changing cloth phases, and foot/mounted charging articulation. Live browser inspection of the rebuilt game showed charges, moving flags, blood and airborne debris; captured page warning/error logs were empty. The browser automation tool itself reported unrelated telemetry network failures. The preview server was restarted after detecting an older offline cached page.
+
+- [Live charge, flags, blood and impact fragments](screenshots/effects-charge-live.jpg)
+- [Battle overview after combat](screenshots/effects-battle-complete.jpg)
+
+## Follow-up: visible dragoon recruitment (15 October 2026)
+
+Dragoons now have a persistent recruitment card in Realm and Orders, including before barracks exist. The card appears above army details and routes players to suitable land or barracks. It offers building, upgrading, or recruiting according to the province state, with construction progress and explicit gold, population, and occupation blockers. The level 1 barracks button says **Unlock dragoons**; level 2 offers **Recruit dragoons**. Duplicate recruitment and upgrade controls were removed.
+
+Validation: campaign expansion, campaign options, and engagement checks passed; the expansion check exercises the complete build, upgrade, recruit, and training-completion flow through action handlers. The offline build was regenerated. Desktop browser inspection confirmed the card is visible in Realm and above army details in Orders, with no captured page warnings/errors.
+
+- [Visible dragoon recruitment](screenshots/dragoon-recruitment-visible.jpg)
+
+## Follow-up: personnel targets and faction uniforms (15 October 2026)
+
+- Selected formations now offer **Target drummer**, **Target general**, **Target sergeant**, and **Normal targeting**. Buttons show living target counts; the order prefers the explicitly chosen enemy formation, otherwise the nearest matching person. A named battlefield marker and status identify the actual figure. Changing combat/movement orders clears the focus, and a fallen target returns the formation to normal targeting.
+- Focused musket fire has 25% lower hit probability, with a 35% priority roll on successful hits before ordinary victim selection. Actual figure range, firing arc and friendly masking gate priority hits; artillery keeps its scatter and area damage. Melee cannot prioritize a figure outside its close reach. Commander retinues now have finite melee rates when directly attacked.
+- Infantry and militia receive a sergeant with a polearm and gold sash. Losing one adds an 8-point morale shock and reduces reload progress by 15%. Existing drummer and commander casualty consequences remain in effect.
+- Painted figures now have faction-specific lapels, waistcoats, cuffs, belts and hat details. Prussia uses red cuffs and ivory waistcoats; Britain navy lapels and white crossbelts; France crimson lapels and silver trim; Austria dark crossbelts; Russia red waistcoats; Sweden yellow waistcoats/cuffs. Free-city troops retain brown/cream details. These code-drawn details accompany the existing national coat assets; firing/charging silhouettes retain their painted national variants. Uniform palettes are cached rather than allocated per figure. The battle panel includes a uniform and role identification guide.
+
+Validation: the 16 existing/new simulation and campaign checks passed, followed by the new personnel UI check and focused reruns after final UI/palette changes. Tests cover actual role-order handlers, order cancellation, range/masking, misses, casualty cleanup, commander melee, sergeant reload/morale consequences, seven distinct uniform styles and balanced drawing transforms. Rebuilt the offline game. Live browser checks exercised drummer, general and sergeant orders, confirmed selected target status, and inspected Prussian/French and Prussian/Russian battles. Page warning/error logs were empty.
+
+- [Personnel targeting in the live battle](screenshots/personnel-targeting.jpg)
+
+## Follow-up: larger battlefield and opening distance (15 October 2026)
+
+The field is now 400 × 900 paces, extending its depth from 620. The attacking deployment moves back by up to 280 paces, so a standard open-field infantry matchup starts with 450 paces between its lines instead of 170. Deep infantry reserves shift together to preserve row spacing; very deep mounted formations use the available rear space. Gun crews and interpolated positions move with their formations. Forest cover near the attacking deployment and road/tree distribution extend into the added ground. Forts, river crossings and weapon ranges retain their dimensions.
+
+The Follow camera can now zoom out to the full field instead of enforcing a close crop. Browser inspection confirmed both armies and the approach zone are visible.
+
+Validation: all 18 checks passed across the suite and focused final reruns. The new space check covers standard/dense armies and all fort types, figure bounds, reserve rows, gun crews, initial interpolation, no opening casualties while both sides hold, and infantry successfully reaching firing range (about 132 simulation seconds in the test). Offline output rebuilt; whitespace checks passed.
+
+- [Larger battlefield and separated starting armies](screenshots/larger-battlefield.jpg)
+
+## Follow-up: declare war from territory (15 October 2026)
+
+Foreign province details now show **Declare war on [owner]** directly below the territory name. Independent cities declare against the city; protected cities declare against their protector. Your own provinces/protected cities and unclaimed land do not offer a war action. Existing wars show the current status and marching instructions. The controls reuse the existing confirmation, treaty penalties, ally reactions and saved diplomatic state. Province navigation resets the panel to its top, and map/help text directs players to the new controls.
+
+Validation: campaign options, expansion and engagement checks passed. Added tests exercise actual declaration handlers for neutral/peace/alliance/truce relations, independent/protected cities, preserved army positions/moves, target-specific confirmation, cancellation on navigation and removal of the action after war begins. Offline game rebuilt. Live browser inspection confirmed the button appears beneath a foreign territory name; page warning/error logs were empty. No war was declared in the live preview.
+
+- [Declare war from territory details](screenshots/territory-declare-war.jpg)
+
+
+## Follow-up: garrison walls and stronger siege artillery (15 October 2026)
+
+Defenders now have a **Garrison walls** command under Fortress defence. It assigns selected infantry/militia, or all eligible foot troops when none are selected, to separate intact wall sections facing the attackers. Troops march into position and form outward-facing ranks; outside defenders enter through friendly access without creating a breach attackers can use. The field marks each assigned **WALL POST**. New movement, combat, formation, facing or personnel orders release the post, as does a breach in that section. Cavalry and artillery retain their orders. Practice setup now offers **Attack / Defend** and labels the defender's fortification explicitly.
+
+Field-gun damage per direct wall hit is now 6 against timber, 3.6 against stone forts and 4.5 against city walls: respectively 3, 9 and 7 hits to breach a fresh section. Howitzers deal 10, requiring 2 timber or 3 masonry hits. Bombardment concentrates on intact section midpoints and switches after a breach. Cannonballs now land exactly at their intended flight endpoint instead of overshooting between simulation steps. Wall scatter was narrowed; damage to troops and weapon ranges are unchanged.
+
+Validation: all 19 automated checks passed. New simulation checks cover gradual deployment, separate posts, outward fire, friendly entry, attacker blocking, breach/order cancellation, exact cannon impacts and breach hit counts for all three wall types. UI checks exercise the real wall-order handler, eligibility and cancellation. A further focused check confirms howitzer breach counts. Rebuilt the offline game and verified the Defend setup and wall deployment in the browser with no captured page warnings/errors.
+
+- [Garrison wall positions in the live game](screenshots/wall-garrison.jpg)
+
+## Follow-up: choose a wall breach point (15 October 2026)
+
+Attacking players can now select **Target wall point…** and click an intact wall section. The picker numbers intact sections, ignores empty ground and existing breaches, and assigns selected artillery (or all eligible guns when nothing is selected). Field guns and howitzers share the chosen section and display a **BREACH HERE** marker with live section strength. Batteries stop siege fire when that section falls and retain a **BREACHED** marker until given a new target/order. Normal movement, combat and personnel orders clear the explicit wall target. Field guns now approach the actual wall target instead of measuring approach distance against an enemy regiment; howitzers also deploy using the selected section's range.
+
+Validation: all 19 automated checks passed, including extended wall/UI checks for artillery eligibility, missed clicks, point-specific aim and movement, breach cease-fire, retargeting and cancellation. Live browser testing assigned both batteries to city-wall section 5, observed its strength fall to 34%, then confirmed the visible breach and **Section 5 breached — guns hold fire** status. Captured warning/error logs were empty. Rebuilt offline output after updating the in-game help; syntax and whitespace checks passed.
+
+- [Selected wall section breached](screenshots/chosen-wall-breach.jpg)

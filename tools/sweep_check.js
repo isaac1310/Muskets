@@ -122,7 +122,7 @@ function fixedRandom(value,fn){const old=Math.random;Math.random=()=>value;try{r
   }
   {const s=fresh();s.armies[0].u={...t.zeroU(),inf:1};t.desert(0,.08,'unpaid wages');assert.equal(t.unitsOf(0).inf,0,'A tiny force cannot remain permanently immune to unpaid wages')}
   {const s=fresh(),a=s.armies[0],p=t.G.nb[a.p][0];s.prov[p].o=1;s.prov[p].b='fort';t.declareWar(0,1);
-    assert(t.preBattleHtml(a,p).includes('no artillery'));a.u.how=1;assert(t.preBattleHtml(a,p).includes('Target the walls'))}
+    assert(t.preBattleHtml(a,p).includes('no artillery'));a.u.how=1;assert(t.preBattleHtml(a,p).includes('Target wall point…'))}
   const retreat=battle('inf');t.rout(retreat.B,0);assert(retreat.r.routing);assert.equal(t.unitStatus(retreat.B,retreat.r),'Routing');
   assert(!t.UNIT.inf.d.includes('Squares'));
   console.log('Sweep: artillery range/hold, every firing cohort, geometric flanks, intact-wall melee, abandoned guns, road/river merges, stale diplomacy, unpaid-wage splitting, siege advice and retreat status pass.');

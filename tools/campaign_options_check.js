@@ -5,12 +5,34 @@ const noop=new Proxy(function(){},{get:(_,k)=>k==='measureText'?()=>({width:40})
 const el=id=>els[id]||(els[id]={id,innerHTML:'',textContent:'',hidden:true,style:{},dataset:{},disabled:false,clientWidth:400,clientHeight:700,value:'gold',classList:{add(){},remove(){},toggle(){}},setAttribute(){},addEventListener(n,f){elementHandlers[id+'-'+n]=f},getContext:()=>noop,getBoundingClientRect:()=>({left:0,top:0})});
 const ctx={console,Math,Date,Set,Map,Promise,Uint8Array,Blob,URL,atob,setTimeout:()=>0,clearTimeout(){},clearInterval(){},setInterval:()=>0,document:{getElementById:el,createElement:()=>el('generated'+Math.random()),addEventListener:(n,f)=>{(docHandlers[n]||(docHandlers[n]=[])).push(f);handlers[n]=f}},window:{},location:{hash:'',protocol:'file:'},innerWidth:400,innerHeight:800,devicePixelRatio:1,addEventListener(){},requestAnimationFrame(){},performance:{now:()=>Date.now()},localStorage:{getItem:k=>storage[k]||null,setItem:(k,v)=>storage[k]=v,removeItem:k=>delete storage[k]}};
 let src=fs.readFileSync(path.join(root,'game/script.js'),'utf8').replace('/*__BATTLE__*/',fs.readFileSync(path.join(root,'game/battle.js'),'utf8')).replace('/*__SOUND__*/',fs.readFileSync(path.join(root,'game/sound.part.js'),'utf8'));
-src=src.replace('/*__TEST__*/',`globalThis.test={get S(){return S},set S(v){S=v},get G(){return G},UI,newGame,start,recruit,tickRecruitment,armyAt,zeroU,capture,eliminate,improveRelations,canImproveRelations,cityTrade,endCityTrade,canCityTrade,cityWar,cityGift,cityProtect,takeCity,landRoute,capitalOf,routes,tradeIncome,declareWar,makePeace,realmPanel,tilePanel,diploPanel,resetMoves,endTurn,aiRecruit};UI.headless=true;`);
+src=src.replace('/*__TEST__*/',`globalThis.test={get S(){return S},set S(v){S=v},get G(){return G},UI,newGame,start,recruit,tickRecruitment,armyAt,zeroU,capture,eliminate,improveRelations,canImproveRelations,cityTrade,endCityTrade,canCityTrade,cityWar,cityGift,cityProtect,takeCity,landRoute,capitalOf,routes,tradeIncome,declareWar,makePeace,realmPanel,tilePanel,diploPanel,territoryWarHtml,R,canStep,resetMoves,endTurn,aiRecruit};UI.headless=true;`);
 vm.createContext(ctx);vm.runInContext(src,ctx);const t=ctx.test;
 const click=async(act,extra={})=>handlers.click({target:{closest:()=>({dataset:{act,...extra}})}});
 const fresh=(opening='balanced')=>{t.newGame('normal',0,opening);return t.S};
 function recoveryFixture(){const s=fresh(),p=s.prov.findIndex(x=>x.o===0&&x.b==='capital');assert(s.prov.some((x,i)=>i!==p&&x.o===0));t.capture(1,p);return{s,p,r:s.fac[0].recovery}}
 (async()=>{
+  // Province actions use the existing diplomatic rules and never auto-march an army.
+  for(const status of ['neutral','peace','alliance','truce']){
+    const state=fresh(),p=state.prov.findIndex(t=>t.o===1),r=t.R(0,1);r.st=status;r.trade=status==='peace';state.sel=p;t.UI.tab='tile';t.UI.confirm=null;
+    const before=JSON.stringify(state.armies.map(a=>({p:a.p,mv:a.mv,u:a.u}))),betray=state.pBetray;
+    let html=t.tilePanel();assert(html.includes('data-op="war" data-f="1"'));assert(html.includes('Declare war on'));
+    if(status!=='neutral')assert(html.includes('damages trust'));
+    await click('dip',{op:'war',f:'1'});assert.equal(r.st,status);assert(t.tilePanel().includes(status==='neutral'?'Confirm war on':'Confirm: break treaties with'));
+    await click('dip',{op:'war',f:'1'});assert.equal(r.st,'war');assert(!r.trade);assert.equal(state.sel,p);assert.equal(t.UI.tab,'tile');assert.equal(JSON.stringify(state.armies.map(a=>({p:a.p,mv:a.mv,u:a.u}))),before);
+    assert(!t.tilePanel().includes('data-op="war"'));assert(t.tilePanel().includes('At war with'));assert.equal(state.pBetray,betray+(status==='neutral'?0:1));
+  }
+  {
+    const state=fresh(),city=state.cities.find(c=>state.prov[c.p].o==null);city.patron=null;city.war[0]=false;state.sel=city.p;t.UI.confirm=null;
+    const i=state.cities.indexOf(city);assert(t.tilePanel().includes(`data-act="cwar" data-c="${i}"`));
+    await click('cwar',{c:String(i)});assert(!city.war[0]);await click('cwar',{c:String(i)});assert(city.war[0]);assert(!t.tilePanel().includes('data-act="cwar"'));
+    city.war[0]=false;city.patron=1;t.R(0,1).st='neutral';t.UI.confirm=null;assert(t.tilePanel().includes('Protected by'));assert(t.tilePanel().includes('data-op="war" data-f="1"'));assert(!t.tilePanel().includes('data-act="cwar"'));
+    await click('dip',{op:'war',f:'1'});await click('dip',{op:'war',f:'1'});assert.equal(t.R(0,1).st,'war');assert(t.canStep(0,city.p));assert(!city.war[0]);
+    city.patron=0;assert(!t.territoryWarHtml(city.p).includes('<button'));assert(t.territoryWarHtml(city.p).includes('your protection'));
+    state.sel=0;assert(!t.territoryWarHtml(0));const empty=state.prov.findIndex(x=>x.o==null&&!x.b);assert(empty>=0);assert(!t.territoryWarHtml(empty));
+    // Navigating away cancels the armed confirmation, even when another province has the same owner.
+    const p=state.prov.findIndex(x=>x.o===2);state.sel=p;t.R(0,2).st='neutral';await click('dip',{op:'war',f:'2'});assert(t.UI.confirm);
+    await click('site',{p:String(p)});assert.equal(t.UI.confirm,null);await click('dip',{op:'war',f:'2'});assert.equal(t.R(0,2).st,'neutral');
+  }
   let s=fresh();s.fac[0].gold=500;s.fac[0].pop=20;const a=s.armies[0],before={...a.u};
   for(const [type,b] of [['mil','capital'],['inf','capital'],['cav','barracks'],['art','foundry'],['how','foundry']]){s.prov[0].b=b;s.prov[0].level=2;assert(t.recruit(0,0,type))}
   s.prov[0].b='capital';assert.equal(s.recruitment.length,5);assert.equal(s.fac[0].gold,409);assert.equal(s.fac[0].pop,15);assert.deepEqual(a.u,before);

@@ -57,6 +57,20 @@ const SND={ctx:null,master:null,musicBus:null,fxBus:null,nb:null,musicT:null,ste
     this.burst(t+.008,.9,'lowpass',170+120*k,.8*k,.7,pan);
     this.burst(t+.12,1.6,'lowpass',95,.28*k,.5,pan*.5);
     this.burst(t+.38+Math.random()*.15,.7,'lowpass',260,.09*k,.6,-pan*.6)},
+  howitzer(near=1,pan=0){if(!this.ok('howitzer',140))return;this.combatPulse(.3);this.duckMusic(.36);const t=this.ctx.currentTime,k=Math.max(.35,Math.min(1,near));
+    this.burst(t,.028,'highpass',1700,.7*k,.7,pan);
+    this.thump(t,105,27,1.15,1.05*k,pan);this.thump(t+.035,58,24,1.5,.38*k,pan);
+    this.burst(t+.006,.48,'bandpass',360,.72*k,.65,pan);
+    this.burst(t+.04,1.8,'lowpass',155,.7*k,.6,pan);
+    this.burst(t+.32,.9,'lowpass',240,.2*k,.5,-pan*.5)},
+  shellWhistle(pan=0){if(!this.ok('shellWhistle',180))return;const t=this.ctx.currentTime;
+    this.tone(t,1600,.65,'sine',.065,310);this.tone(t+.03,1080,.57,'triangle',.025,190);
+    this.burst(t,.55,'bandpass',1350,.07,5,pan,false)},
+  howitzerImpact(near=1,pan=0){if(!this.ok('howitzerImpact',150))return;this.combatPulse(.4);this.duckMusic(.28);const t=this.ctx.currentTime,k=Math.max(.35,Math.min(1,near));
+    this.burst(t,.055,'highpass',1200,.92*k,.6,pan);this.thump(t,94,20,1.9,1.1*k,pan);
+    this.burst(t+.012,1.5,'bandpass',440,.72*k,.5,pan);this.burst(t+.05,2.5,'lowpass',160,.9*k,.5,pan);
+    for(let i=0;i<8;i++)this.burst(t+.1+i*.075,.04+i*.008,'highpass',1800+i*310,.14*k,.8,Math.max(-1,Math.min(1,pan+(i%2?-.4:.4))),false);
+    this.burst(t+.45,2.2,'lowpass',90,.3*k,.5,-pan*.4)},
   explosion(k=1){if(!this.ok('explosion',140))return;this.combatPulse(.28);this.duckMusic(.42);const t=this.ctx.currentTime,pan=(Math.random()-.5)*.9;
     this.burst(t,.045,'highpass',1400,1*k,.7,pan);this.thump(t,82,22,1.7,1*k,pan);
     this.burst(t+.006,1.9,'lowpass',260,1*k,.6,pan);this.burst(t+.03,.75,'bandpass',620,.45*k,.5,pan);
