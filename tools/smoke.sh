@@ -3,6 +3,7 @@
 # then real headless-Chrome battles with the console watched for script errors.
 # Usage: tools/smoke.sh            (screenshots go to tools/smoke-out/)
 set -u
+unsetopt bgnice
 cd "${0:A:h}/.."
 OUT=tools/smoke-out; mkdir -p $OUT
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -32,17 +33,42 @@ print "  ${out[1,100]}"
 [[ "$out" == *'"err":0'* ]] || bad "campaign simulation"
 
 step "browser battles"
-if [[ -x "$CHROME" ]]; then
-  (cd offline && python3 -m http.server $PORT >/dev/null 2>&1 &) ; sleep 1
-  for h in practice practice-fire practice-close review-fort review-forest review-river review-map; do
-    log=$("$CHROME" --headless=new --disable-gpu --hide-scrollbars --window-size=500,900 --enable-logging=stderr --v=0 \
-      --virtual-time-budget=20000 --screenshot=$OUT/$h.png "http://localhost:$PORT/index.html?s=$RANDOM#$h" 2>&1 \
-      | grep "CONSOLE" | grep -E "Uncaught|Error|TypeError|ReferenceError" | grep -v "AudioContext")
-    if [[ -n "$log" ]]; then bad "#$h"; print "$log" | head -3; else print "  #$h: no script errors"; fi
+if [[ "${SKIP_BROWSER:-0}" == 1 ]]; then
+  print "  Explicitly skipped; verify the browser separately."
+elif [[ -x "$CHROME" ]]; then
+  python3 -m http.server $PORT --bind 127.0.0.1 --directory offline >$OUT/server.log 2>&1 &
+  server_pid=$!
+  trap 'kill $server_pid 2>/dev/null || true' EXIT
+  ready=0
+  for attempt in {1..10}; do
+    if ! kill -0 $server_pid 2>/dev/null; then break; fi
+    if curl --silent --fail --max-time 2 "http://127.0.0.1:$PORT/manifest.webmanifest" >/dev/null; then ready=1; break; fi
+    sleep .2
   done
-  pkill -f "http.server $PORT"
+  if (( ! ready )); then
+    bad "preview server did not start (see $OUT/server.log)"
+  else
+    for h in practice practice-fire practice-close review-fort review-forest review-river review-hills review-map; do
+      # Never mistake a previous screenshot or a failed browser launch for a pass.
+      shot=$OUT/$h-new.png
+      rm -f "$shot"
+      if ! "$CHROME" --headless=new --disable-gpu --hide-scrollbars --window-size=500,900 --enable-logging=stderr --v=0 \
+        --virtual-time-budget=20000 --screenshot="$shot" "http://127.0.0.1:$PORT/index.html?s=$RANDOM#$h" >$OUT/$h.log 2>&1; then
+        bad "#$h: browser exited unsuccessfully (see $OUT/$h.log)"
+      elif [[ ! -s "$shot" ]]; then
+        bad "#$h: no new screenshot was produced"
+      elif grep 'CONSOLE' $OUT/$h.log | grep -E 'Uncaught|Error|TypeError|ReferenceError' | grep -v 'AudioContext' >$OUT/$h-errors.log; then
+        bad "#$h: script error (see $OUT/$h-errors.log)"
+      else
+        mv "$shot" $OUT/$h.png
+        print "  #$h: fresh screenshot, no script errors"
+      fi
+    done
+  fi
 else
-  print "  Chrome not found; skipped"
+  bad "Chrome not found. Use SKIP_BROWSER=1 only when verifying the browser separately."
 fi
 
-(( fail )) && { print -P "%F{red}Smoke test FAILED%f"; exit 1 } || print -P "%F{green}Smoke test passed. Screenshots in $OUT/%f"
+if (( fail )); then print -P "%F{red}Smoke test FAILED%f"; exit 1; fi
+if [[ "${SKIP_BROWSER:-0}" == 1 ]]; then print -P "%F{green}Core smoke checks passed; browser checks explicitly skipped.%f";
+else print -P "%F{green}Smoke test passed. Screenshots in $OUT/%f"; fi

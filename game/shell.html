@@ -182,15 +182,15 @@ summary{cursor:pointer;color:var(--brass);padding:8px 0;font-size:13px;line-heig
     <button class="btn brass" data-act="endturn" id="endbtn">End season</button>
   </div>
 </div>
-<div id="home"><canvas id="homecv" aria-hidden="true"></canvas><div class="hwrap">
+<div id="home" role="dialog" aria-modal="true" aria-label="Musket and Crown main menu"><canvas id="homecv" aria-hidden="true"></canvas><div class="hwrap">
   <div><h1 class="htitle">Musket &amp; Crown</h1><p class="hsub">Six crowns, one continent. From 1740, until one stands.</p></div>
   <div class="hmenu" id="hmenu"></div>
 </div></div>
-<div id="battle" hidden>
+<div id="battle" role="dialog" aria-modal="true" aria-labelledby="btitle" hidden>
   <div class="bhead"><div><div class="btitle" id="btitle"></div><div class="bsub" id="bsub"></div><div id="bnotice" role="status" aria-live="polite">Give orders to your selected troops</div></div><div class="bstat" id="bstat"></div></div>
-  <div class="bfield"><div id="bzoom"><button class="btn sm" data-act="bz" data-v="in" aria-label="Zoom in">+</button><button class="btn sm" data-act="bz" data-v="out" aria-label="Zoom out">−</button><button class="btn sm" data-act="bz" data-v="fort" id="bzfort" hidden>View fort</button><button class="btn sm" data-act="bz" data-v="auto" id="bzauto">Follow</button></div><canvas id="bcv" aria-label="Battlefield. Tap one of your units to command it."></canvas><div class="card" id="bres" hidden></div></div>
+  <div class="bfield"><div id="bzoom"><button class="btn sm" data-act="bz" data-v="in" aria-label="Zoom in">+</button><button class="btn sm" data-act="bz" data-v="out" aria-label="Zoom out">−</button><button class="btn sm" data-act="bz" data-v="fort" id="bzfort" hidden>View fort</button><button class="btn sm" data-act="bz" data-v="auto" id="bzauto">Follow</button></div><canvas id="bcv" aria-label="Battlefield. Tap one of your units to command it."></canvas><div class="card" id="bres" role="dialog" aria-modal="true" aria-label="Battle result" hidden></div></div>
   <div class="bctl" id="bctl"></div>
   <div class="bquick" id="bquick"></div>
 </div>
-<div id="modal" hidden><div class="card" id="card"></div></div>
+<div id="modal" role="dialog" aria-modal="true" aria-label="Campaign options" hidden><div class="card" id="card" tabindex="-1"></div></div>
 <div id="toast" hidden></div>

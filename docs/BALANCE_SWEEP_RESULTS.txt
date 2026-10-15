@@ -1,0 +1,29 @@
+Completed field matchups (remaining exploratory cases were not run):
+Paired seeds 1740–1755; AI on both sides unless a player command is named. Intervals describe sampling uncertainty, not human balance.
+3 inf vs 10 militia (same gold)                15/16 att wins (94%; 95% interval 72–99%)  96s
+12 inf vs 40 militia (same gold)               0/16 att wins (0%; 95% interval 0–19%)  108s
+6 inf vs 12 militia (same upkeep)              16/16 att wins (100%; 95% interval 81–100%)  91s
+3 inf vs 3 inf, forest                         8/16 att wins (50%; 95% interval 28–72%)  94s
+6 inf vs 6 inf, hills                          0/16 att wins (0%; 95% interval 0–19%)  96s
+12 inf vs 12 inf, plain                        2/16 att wins (13%; 95% interval 3–36%)  122s
+8 inf vs 4 cav (inf should win)                16/16 att wins (100%; 95% interval 81–100%)  40s
+4 cav vs 3 art (horse should win)              16/16 att wins (100%; 95% interval 81–100%)  45s
+3 art vs 6 inf (guns should win)               15/16 att wins (94%; 95% interval 72–99%)  114s
+6 inf vs 6 inf                                 0/16 att wins (0%; 95% interval 0–19%)  103s
+8 inf vs 6 inf (numbers)                       6/16 att wins (38%; 95% interval 18–61%)  110s
+10 inf vs 6 inf                                15/16 att wins (94%; 95% interval 72–99%)  103s
+6 inf vs 6 militia                             16/16 att wins (100%; 95% interval 81–100%)  64s
+6 inf vs 20 militia (same cost)                1/16 att wins (6%; 95% interval 1–28%)  108s
+6i2c vs 6i2c, attacker flanks with horse       5/16 att wins (31%; 95% interval 14–56%)  98s
+6i2c vs 6i2c, plain                            9/16 att wins (56%; 95% interval 33–77%)  98s
+
+Final siege follow-up:
+Paired seeds 1740–1747; AI on both sides unless a player command is named. Intervals describe sampling uncertainty, not human balance.
+8i2a vs stone fort 3i+2guns                    8/8 att wins (100%; 95% interval 68–100%)  391s
+8i2h vs stone fort 3i+2guns, target walls      8/8 att wins (100%; 95% interval 68–100%)  107s
+8i2a vs wooden fort 3i+1gun                    8/8 att wins (100%; 95% interval 68–100%)  320s
+
+Simulation-only timing:
+{"name":"practice","initialFiguresAndCrew":638,"samples":600,"simulationSeconds":80,"medianMs":1.703,"p95Ms":4.67,"maxMs":10.674}
+{"name":"large","initialFiguresAndCrew":1157,"samples":600,"simulationSeconds":80,"medianMs":3.079,"p95Ms":7.367,"maxMs":16.219}
+{"name":"fort","initialFiguresAndCrew":384,"samples":600,"simulationSeconds":80,"medianMs":0.891,"p95Ms":2.485,"maxMs":4.064}

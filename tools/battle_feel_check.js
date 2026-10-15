@@ -55,3 +55,24 @@ poses.length=0;ctx.drawPaintedFig(motionCanvas,{ox:0,x:200,rank:0,gait:0,walk:0,
 console.log('Visuals: charging strides/lean and directional hit flinch pass.');
 for(const type of ['inf','mil'])for(const prepared of [false,true])ctx.drawPaintedFig(canvas,{ox:0,x:200,rank:0,gait:0,walk:0,role:''},{type,moving:false,bayonetsFixed:prepared,fixStarted:5,fixUntil:prepared?0:8},N,-1,6);
 console.log('Bayonet fixing and fixed ready poses render for infantry and militia.');
+// Retreat uses fleeing art even when it is an army-wide order, not a morale break.
+const painted=new Map();ctx.UNIT_IMAGES=new Proxy({}, {get:(_,kind)=>{if(!painted.has(kind))painted.set(kind,{...im,kind});return painted.get(kind)}});
+for(const type of ['inf','mil']){
+  const calls=[],record=new Proxy({}, {get:(_,key)=>(...args)=>calls.push([key,...args])});
+  ctx.drawPaintedFig(record,{ox:0,x:200,rank:0,gait:1,walk:1,role:''},{type,routing:true,moving:true,bayonet:true},N,1,5);
+  assert(calls.some(p=>p[0]==='drawImage'&&p[1].kind===(type==='inf'?'infantry-flee':'militia-flee')));
+  assert.equal(calls.filter(p=>p[0]==='drawImage'&&p.length===10).length,3,'Fleeing feet must stride instead of sliding');
+  calls.length=0;
+  ctx.drawPaintedFig(record,{ox:0,x:200,rank:0,gait:1,walk:1,role:'',shotT:4},{type,moving:true,reload:2},N,1,5);
+  assert.equal(calls.filter(p=>p[0]==='drawImage'&&p.length===10).length,3,'Moving reload poses need leg animation');
+}
+// Mounted fire and reload must have visible weapon actions; redraws at paused time stay identical.
+for(const type of ['cav','hus']){
+  const calls=[],record=new Proxy({}, {get:(_,key)=>(...args)=>calls.push([key,...args])});
+  const rider={ox:0,x:200,rank:0,gait:0,walk:0,role:'',shotT:5},reg={type,moving:false,reload:3};
+  ctx.drawPaintedFig(record,rider,reg,N,-1,5.1);
+  assert(calls.some(p=>p[0]==='arc'&&p[2]===(type==='hus'?-1.9:-3.9)),'Mounted shot needs a muzzle flash on its weapon');
+  const paused=JSON.stringify(calls);calls.length=0;ctx.drawPaintedFig(record,rider,reg,N,-1,5.1);assert.equal(JSON.stringify(calls),paused);
+  calls.length=0;ctx.drawPaintedFig(record,rider,reg,N,-1,6);assert(calls.some(p=>p[0]==='lineTo'&&p[2]===(type==='hus'?-1.8:-3.8)),'Mounted reload must still show the weapon');
+}
+console.log('Animation sweep: army-wide fleeing art, walking reload/flee strides, carbine/pistol fire and reload, and paused mounted actions pass.');

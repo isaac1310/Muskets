@@ -216,3 +216,17 @@ Preview evidence: `review-engagement-phone.png`. No ambition system, scripted ca
 - [ ] Extended campaign balance and physical-phone performance playtests
 
 Evidence: `screenshots/campaign-progress.png`, `screenshots/battle-formation-orders.png`, `screenshots/peace-negotiation.png`.
+
+## Graphics and strategy sweep — 15 October 2026
+
+- [x] Correct howitzer range and held deployment, large firing cohorts, geometric cavalry flank damage, intact-wall melee and abandoned-gun retaliation
+- [x] Correct road/river army merges, stale diplomatic offers and wage-desertion splitting exploits
+- [x] Prioritize terrain loading before combat, animate moving reload/flee poses and mounted weapons, and show army-wide routs
+- [x] Reduce group-selection overlays, isolate battle focus and correct tactical help/siege advice
+- [x] Require fresh browser smoke-test evidence instead of accepting launch failures
+- [x] Rework crowded fort deployments and implement positional terrain/facing rules
+- [x] Extend campaign animations and home/settings/result overlay accessibility
+- [x] Add paired-seed balance studies, multi-resource recruitment comparisons and simulation timing
+- [ ] Physical-phone acceptance and human balance playtests (require real devices/players)
+
+Full findings and evidence: [Graphics, animation and strategy sweep](GRAPHICS_GAMEPLAY_SWEEP.md).
