@@ -38,6 +38,7 @@ Or just open `game/musket-crown.html` directly in a browser after building.
 - [Development & testing](docs/DEVELOPMENT.md) — build, checks, smoke test, review routes
 - [Deployment](docs/DEPLOYMENT.md) — GitHub + Vercel
 - [Developer handoff](docs/HANDOFF.md) — implementation history and where each feature lives
+- [Graphics and strategy sweep](docs/GRAPHICS_GAMEPLAY_SWEEP.md) — October 15 fixes, completed follow-up and validation limits
 - [Battle scene review](docs/BATTLE_SCENE_REVIEW.md) — art sweep status
 - [Assets](assets/README.md) — art inventory and re-export steps
 

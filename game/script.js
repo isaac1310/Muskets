@@ -21,7 +21,7 @@ const UT=['mil','inf','cav','hus','art','how'];
 const zeroU=()=>({mil:0,inf:0,cav:0,hus:0,art:0,how:0});
 const UNIT={
   mil:{n:'Militia',s:'Militia',cost:3,popularity:2,up:.15,at:['capital','house','town','village','city'],d:'Civilian levy. Costs 2 popularity; fragile under fire'},
-  inf:{n:'Line infantry',s:'Infantry',cost:10,up:.3,at:['capital','barracks','town'],d:'Volleys and bayonets. Squares beat horse'},
+  inf:{n:'Line infantry',s:'Infantry',cost:10,up:.3,at:['capital','barracks','town'],d:'Volleys and bayonets. Braced lines resist frontal horse attacks'},
   cav:{n:'Dragoons',s:'Dragoons',cost:20,up:.5,at:['barracks'],d:'Charge or shoot carbines. Ride down guns'},
   hus:{n:'Russian hussars',s:'Hussars',cost:30,up:1,at:[],d:'Mercenary light horse. Fast, deadly to guns'},
   art:{n:'Field guns',s:'Guns',cost:26,up:.5,at:['foundry'],d:'Roundshot and canister beat infantry'},
@@ -313,6 +313,7 @@ function learnFromGame(outcome){
 
 /* ============ setup ============ */
 function newGame(diff,nat,opening='balanced',preview=false){
+  UI.mapFx=[];
   if(S&&!S.over&&S.started!==false)learnFromGame('abandoned');
   let seed,map=null;
   for(let k=0;k<60&&!map;k++){seed=(Math.random()*1e9)|0;map=genMap(seed)}
@@ -389,14 +390,15 @@ function intelligenceHtml(a,button=true){const r=spyReport(a),age=r?S.turn-r.tur
 }
 function safeRetreats(a,from){if(!a)return[];return nbrs(a.p).filter(p=>p!==from&&T(p).o===a.f&&T(p).t!=='water'&&!armyAt(p))}
 function preBattleHtml(a,p,part){const attacking=a.f===0,enemy=attacking?armyAt(p):a,mine=attacking?a:armyAt(p),safe=attacking?[]:safeRetreats(mine,a.p);
- return `<h2>${attacking?'Before the attack':'Enemy approaching'}</h2><p>${esc(placeName(p))} · ${attacking?cnt(part||a.u):cnt(mine.u)} of your units</p>${enemy?`<p>${esc(enemy.name)} of ${fname(enemy.f)}</p>${intelligenceHtml(enemy,false)}`:'<p>A fortified garrison holds this province.</p>'}<p>${attacking?'Cancel the attack to stay here without casualties. This ends the army’s movement for the season.':safe.length?`Withdraw safely to ${esc(placeName(safe[0]))} without field-army casualties. You surrender this province and its garrison. Retreat ends this army’s movement for the season.`:'No empty friendly neighbouring province is available for retreat. Your army must stand and fight.'}</p><div class="row"><button class="btn brass" data-act="prebattle" data-choice="fight">${attacking?'Begin attack':'Stand and fight'}</button><button class="btn" data-act="prebattle" data-choice="${attacking?'cancel':'retreat'}" ${!attacking&&!safe.length?'disabled':''}>${attacking?'Cancel attack':'Retreat before battle'}</button></div>`;
+ const force=part||a.u,siege=attacking&&hostileGar(a.f,p)&&wallsOf(T(p));
+ return `<h2>${attacking?'Before the attack':'Enemy approaching'}</h2><p>${esc(placeName(p))} · ${attacking?cnt(force):cnt(mine.u)} of your units</p>${enemy?`<p>${esc(enemy.name)} of ${fname(enemy.f)}</p>${intelligenceHtml(enemy,false)}`:'<p>A fortified garrison holds this province.</p>'}${siege?`<p class="note">Intact walls block entry and melee. ${force.art+force.how?'Use Target the walls to open a breach; howitzers are more effective against masonry.':'This force has no artillery to open a breach. Bring field guns or howitzers, or fight from outside the walls.'}</p>`:''}<p>${attacking?'Cancel the attack to stay here without casualties. This ends the army’s movement for the season.':safe.length?`Withdraw safely to ${esc(placeName(safe[0]))} without field-army casualties. You surrender this province and its garrison. Retreat ends this army’s movement for the season.`:'No empty friendly neighbouring province is available for retreat. Your army must stand and fight.'}</p><div class="row"><button class="btn brass" data-act="prebattle" data-choice="fight">${attacking?'Begin attack':'Stand and fight'}</button><button class="btn" data-act="prebattle" data-choice="${attacking?'cancel':'retreat'}" ${!attacking&&!safe.length?'disabled':''}>${attacking?'Cancel attack':'Retreat before battle'}</button></div>`;
 }
 function preBattleChoice(a,p,part){return new Promise(resolve=>{UI.preBattle={resolve,a,p,part};openModal(preBattleHtml(a,p,part))})}
 function moveCost(a,p){return T(a.p).road&&T(p).road&&!needsFight(a.f,p)?0.5:1}
 function canMove(a,p){return nbrs(a.p).includes(p)&&canStep(a.f,p)&&a.mv>=moveCost(a,p)}
 async function moveArmy(a,p,part){
   if(!canMove(a,p))return false;
-  let abandoned=false;
+  const origin=a.p;let abandoned=false;
   if(!UI.headless&&needsFight(a.f,p)&&(a.f===0||armyAt(p)?.f===0)){
     const choice=await preBattleChoice(a,p,part);
     if(choice==='cancel'){a.mv=0;log(`${a.name} called off its attack on ${placeName(p)}.`,true);return false}
@@ -406,7 +408,7 @@ async function moveArmy(a,p,part){
   if(part&&cnt(part)>0&&cnt(part)<cnt(a.u)){armyRecord(a);for(const t of UT)a.u[t]-=part[t];m={id:S.nextId++,f:a.f,p:a.p,u:{...part},mv:a.mv,marched:a.marched||0,gen:null};armyRecord(m);m.name=`${fname(a.f)} Detachment ${m.id}`}
   const tl=T(p),other=armyAt(p);
   const cost=abandoned?1:moveCost(m,p);m.mv-=cost;m.marched=(m.marched||0)+cost;if(abandoned)m.mv=0;
-  if(other&&other.f===m.f){armyRecord(other);for(const t of UT)other.u[t]+=m.u[t];other.mv=Math.min(other.mv,m.mv);other.marched=Math.max(other.marched||0,m.marched);mergeGen(other,m);m.gen=null;if(m===a)removeArmy(a,`Joined ${other.name}`);return true}
+  if(other&&other.f===m.f){armyRecord(other);for(const t of UT)other.u[t]+=m.u[t];other.marched=Math.max(other.marched||0,m.marched);other.mv=tl.r?0:Math.max(0,Math.min(other.mv,m.mv,movementAllowance(other)-other.marched));mergeGen(other,m);m.gen=null;if(m.f===0)campaignEffect(p,'Joined forces');if(m===a)removeArmy(a,`Joined ${other.name}`);return true}
   const gar=abandoned?null:hostileGar(m.f,p);
   if(other||gar){
     const defF=other?other.f:tl.o==null?CITYF:tl.o;
@@ -421,6 +423,7 @@ async function moveArmy(a,p,part){
     if(other){if(cnt(other.u)>0)retreat(other);else removeArmy(other)}
   }
   if(cnt(m.u)===0){if(m===a)removeArmy(a);return true}
+  if(m.f===0)campaignEffect(p,'Arrived',m.id,origin);
   if(m===a)a.p=p;else{m.p=p;S.armies.push(m)}
   if(tl.r)m.mv=0;
   if(tl.o!=null&&tl.o!==m.f&&atWar(m.f,tl.o))capture(m.f,p);
@@ -542,7 +545,12 @@ function income(f){
   return r;
 }
 function desert(f,frac,why){
-  let lost=0;S.armies.filter(a=>a.f===f).forEach(a=>{lost+=cnt(applyLoss(a.u,frac));if(cnt(a.u)===0)removeArmy(a)});
+  // Round at crown level: splitting into tiny detachments must not cancel unpaid losses.
+  const armies=S.armies.filter(a=>a.f===f),total=unitsOf(f),quotas=applyLoss({...total},frac);
+  if(!cnt(quotas)&&cnt(total)&&frac>0){const type=UT.reduce((best,t)=>total[t]>total[best]?t:best,'inf');quotas[type]=1}
+  const lost=cnt(quotas);
+  for(const type of UT)for(let n=0;n<quotas[type];n++){const a=armies.filter(a=>a.u[type]>0).sort((a,b)=>b.u[type]-a.u[type])[0];if(a)a.u[type]--}
+  for(const a of armies)if(!cnt(a.u))removeArmy(a);
   if(lost)log(`${lost} ${fname(f)} soldiers deserted over ${why}.`,f===0);
 }
 function applyEconomy(f){
@@ -579,6 +587,7 @@ function tickConstruction(){const waiting=[];for(const q of S.construction||[]){
   if(q.kind!=='road'&&(t.b!==q.from||(t.level||1)!==q.fromLevel))continue;
   if(q.ready>S.turn||(armyAt(q.p)&&armyAt(q.p).f!==q.f)){waiting.push(q);continue}
   if(q.kind==='road')t.road=true;else{t.b=q.b;t.level=q.level}
+  if(q.f===0)campaignEffect(q.p,'Completed');
   log(`${q.b==='road'?'Road':q.b==='town'?'Town':BLD[q.b].n+(q.level>1?' level '+q.level:'')} completed at ${placeName(q.p)}.`,q.f===0);
  }S.construction=waiting;
 }
@@ -634,7 +643,7 @@ const sitesFor=(f,type)=>S.prov.map((t,i)=>i).filter(i=>T(i).o===f&&recruitHere(
 
 /* ============ diplomacy ============ */
 function addRel(a,b,d){if(!real(a)||!real(b)||a===b)return;const r=R(a,b);r.score=clamp(Math.round(r.score+d),-100,100)}
-function setRel(a,b,st){const r=R(a,b);r.st=st;r.since=S.turn}
+function setRel(a,b,st){const r=R(a,b);r.st=st;r.since=S.turn;S.inbox=S.inbox.filter(validEnvoy)}
 function declareWar(a,b){
   if(atWar(a,b)||!S.fac[a].alive||!S.fac[b].alive)return;
   const r=R(a,b),betray=['peace','alliance','truce'].includes(r.st)||r.trade;
@@ -819,9 +828,11 @@ function aiDiplomacy(ai){
 async function aiTurn(f){const F=S.fac[f];if(!F.alive||S.over)return;aiDiplomacy(f);aiTax(f);aiBuild(f);aiCities(f);aiRecruit(f);await aiMilitary(f)}
 
 /* ============ turn ============ */
-function resetMoves(){S.armies.forEach(a=>{a.mv=a.u.mil+a.u.inf+a.u.art+a.u.how===0?2:1;a.marched=0})}
+const movementAllowance=a=>a.u.mil+a.u.inf+a.u.art+a.u.how===0?2:1;
+function resetMoves(){S.armies.forEach(a=>{a.mv=movementAllowance(a);a.marched=0})}
 async function endTurn(){
   if(UI.busy)return;
+  S.inbox=S.inbox.filter(validEnvoy);
   if(S.over||S.inbox.length){if(S.inbox.length)showReport();return}
   UI.busy=true;if(!UI.headless){$('endbtn').disabled=true;$('hint').textContent='Your rivals are moving…'}
   try{
@@ -861,9 +872,20 @@ function inboxText(m){
     case'join':return`Your ally ${n} has been attacked by ${fname(m.target)} and calls on you to join the war.`;
   }
 }
+function validEnvoy(m){
+  if(!S.fac[m.from]?.alive)return false;
+  const r=R(0,m.from);
+  if(m.type==='peace'||m.type==='truce')return r.st==='war';
+  if(m.type==='pact')return r.st==='neutral';
+  if(m.type==='alliance')return r.st==='peace';
+  if(m.type==='tradepact')return r.st!=='war'&&!r.trade;
+  if(m.type==='join')return allied(0,m.from)&&S.fac[m.target]?.alive&&atWar(m.from,m.target)&&!atWar(0,m.target);
+  if(m.type==='tribute')return r.st!=='war'&&r.st!=='alliance';
+  return false;
+}
 function answer(i,yes){
   const m=S.inbox[i];if(!m)return;S.inbox.splice(i,1);
-  const P=S.fac[0],f=m.from;if(!S.fac[f].alive)return;
+  const P=S.fac[0],f=m.from;if(!validEnvoy(m)){save();return}
   if(yes){
     if(m.type==='peace'||m.type==='pact')makePeace(0,f);
     else if(m.type==='truce'){if(atWar(0,f))makeTruce(0,f)}
@@ -913,16 +935,19 @@ function sizeBattle(v){
 }
 function refitBattle(v){const old=v.ground;sizeBattle(v);if(old&&old!==v.ground)v.g.drawImage(old,0,0,FW,FH)}
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(BV&&!BV.closed)refitBattle(BV)}).observe(bcv.parentElement);
-document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&BV&&!BV.closed&&!BV.B.done&&!/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)){e.preventDefault();BV.paused=!BV.paused;renderBattleUI(BV)}});
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat&&BV&&!BV.closed&&!BV.B.done&&BV.B.routing<0&&!/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)){e.preventDefault();BV.paused=!BV.paused;renderBattleUI(BV)}});
 // Keep battlefield decoding out of the opening screen; limit concurrent decodes.
-const battleArtQueue=[];let battleArtStarted=false,artRedrawPending=false;
+const battleArtQueue=[];let battleArtStarted=false,artRedrawPending=false,battleTerrainPending=0;
 function lazyBattleImage(uri,terrain=false){
   const im=new Image();im.decoding='async';battleArtQueue.push({im,uri,terrain});return im;
 }
 function startBattleArt(){
   if(battleArtStarted||typeof Image==='undefined')return;battleArtStarted=true;
+  battleArtQueue.sort((a,b)=>Number(b.terrain)-Number(a.terrain));
+  battleTerrainPending=battleArtQueue.filter(job=>job.terrain).length;
   const next=()=>{const job=battleArtQueue.shift();if(!job)return;
     const done=()=>{job.im.onload=job.im.onerror=null;
+      if(job.terrain)battleTerrainPending--;
       if(job.terrain&&BV&&!BV.closed&&BV.B.t<1)drawGround(BV);
       if(!artRedrawPending){artRedrawPending=true;requestAnimationFrame(()=>{artRedrawPending=false;if(S&&!UI.headless&&$('home').hidden&&!BV)draw()})}
       setTimeout(next,0);
@@ -965,8 +990,12 @@ function drawGround(v){
   const nt=o.terrain==='forest'?26:10;
   for(let k=0;k<nt;k++){const side=r()<.5;tree(side?7+r()*60:FW-7-r()*60,28+r()*(FH-56),4+r()*5,r()<.3?'pine':'oak')}
   if(o.terrain==='forest'){
-    for(let k=0;k<9;k++)grove(50+r()*300,70+r()*500,6+((r()*5)|0),46);
-    for(const[gx,gy]of[[55,200],[345,200],[55,430],[345,430],[130,312],[270,312]])grove(gx,gy,5,40);
+    for(const[cx,cy,rx,ry]of v.B.groves||[]){
+      g.fillStyle='rgba(24,62,20,.24)';g.strokeStyle='rgba(222,232,155,.38)';g.lineWidth=1;
+      g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);g.fill();g.stroke();
+      for(let k=0;k<18;k++){const a=r()*Math.PI*2,d=Math.sqrt(r())*.88,x=cx+Math.cos(a)*rx*d,y=cy+Math.sin(a)*ry*d;
+        if(!(o.fortKind&&Math.hypot(x-200,y-120)<132))tree(x,y,4+r()*4,r()<.34?'pine':'oak')}
+    }
   }else grove(r()<.5?110:290,312,4,40);
   if(o.terrain!=='forest')for(let k=0;k<7;k++){const side=k%2===0,x=side?48+r()*42:FW-48-r()*42,y=105+k*66+r()*24;tree(x,y,5+r()*3,r()<.25?'pine':'oak')}
   if(o.river){
@@ -977,10 +1006,11 @@ function drawGround(v){
     g.strokeStyle='rgba(255,255,255,.3)';g.lineWidth=.8;for(let k=0;k<30;k++){const x=r()*FW,y=294+r()*18;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+4,y-1.1,x+8+r()*5,y);g.stroke()}
     for(let k=0;k<38;k++){const x=r()*FW,y=(r()<.5?286:317)+(r()-.5)*6;g.strokeStyle=k%3?'#68784a':'#a4a775';g.lineWidth=.65;g.beginPath();g.moveTo(x,y+3);g.lineTo(x+(r()-.5)*3,y-2-r()*4);g.stroke()}
   }
-  v.houses=[];if(o.fortKind)drawSiegeSite(g,o.fortKind,r,v.houses);
+  v.houses=[];if(o.fortKind)drawSiegeSite(g,o.fortKind,r,v.houses,v.B.regs);
 }
-function drawSiegeSite(g,kind,r,houses=[]){
+function drawSiegeSite(g,kind,r,houses=[],regs=[]){
   const roof=(x,y,w,h,tile)=>{
+    if(regs.some(r=>r.side===1&&r.men.some(m=>m.x>x-8&&m.x<x+w+8&&m.y>y-12&&m.y<y+h+8)))return;
     houses.push({x,y,w,h,tile});
     const im=BUILDING_IMAGES?.[tile?'timber-cottage':'stone-townhouse'];
     if(im?.complete&&im.naturalWidth){g.fillStyle='rgba(19,18,14,.27)';g.beginPath();g.ellipse(x+w*.58,y+h*.92,w*.8,h*.42,0,0,7);g.fill();
@@ -1002,9 +1032,9 @@ function drawSiegeSite(g,kind,r,houses=[]){
     g.fillStyle='#aea697';star(109,80);g.fill();g.strokeStyle='#e0d5bf';g.lineWidth=2.5;g.stroke();
     g.fillStyle='#615c4d';star(91,65);g.fill();g.fillStyle='#797452';star(84,61);g.fill();
     g.strokeStyle='rgba(54,48,39,.45)';g.lineWidth=.8;for(let k=0;k<10;k++){const a=Math.PI/2+k*Math.PI/5,rr=k%2?80:109,x=200+Math.cos(a)*rr,y=120+Math.sin(a)*rr;g.beginPath();g.moveTo(x-4,y-2);g.lineTo(x+4,y+2);g.stroke()}
-    for(const p of [[169,164,22,13],[211,161,23,13],[189,88,18,11]])roof(...p,true);
+    roof(190,35,20,12,true);
     roof(62,237,31,22,true);roof(307,229,29,21,false);
-    stores(193,184);gun(129,174,-.7);gun(270,174,Math.PI+.7);gun(137,68,-2.4);gun(262,68,2.4);
+    stores(221,46);gun(129,174,-.7);gun(270,174,Math.PI+.7);gun(137,68,-2.4);gun(262,68,2.4);
     g.fillStyle='#38352d';g.fillRect(191,211,18,9);g.fillStyle='#b5aa91';g.fillRect(190,208,20,4);
     for(const x of [130,166,237,272]){g.fillStyle='#272722';g.fillRect(x,166,5,3);g.fillStyle='#a7a190';g.fillRect(x,165,5,1)}
     // A shaded masonry face and individual stone courses make the rampart read as raised stone.
@@ -1018,8 +1048,8 @@ function drawSiegeSite(g,kind,r,houses=[]){
     g.fillStyle='#6e784b';g.beginPath();g.arc(200,125,94,0,7);g.fill();
     g.strokeStyle='#45341e';g.lineWidth=7;g.beginPath();g.arc(200,125,96,0,7);g.stroke();
     for(let a=0;a<Math.PI*2;a+=.037){if(Math.abs(a-Math.PI/2)<.11)continue;const x=200+Math.cos(a)*96,y=125+Math.sin(a)*96;g.fillStyle=((a*100)|0)%2?'#73502d':'#583b23';g.fillRect(x-1.1,y-4,2.5,7);g.fillStyle='#b18b59';g.fillRect(x-1.1,y-4,2.5,1)}
-    for(const p of [[158,151,23,13],[217,152,23,13],[188,177,18,11]])roof(...p,false);
-    stores(218,185);gun(147,170,-.65);gun(250,169,Math.PI+.65);
+    roof(190,35,20,12,false);
+    stores(221,46);gun(147,170,-.65);gun(250,169,Math.PI+.65);
     g.fillStyle='#4a331c';g.fillRect(189,210,22,9);g.fillStyle='#a17d4d';g.fillRect(187,207,26,3);
     g.strokeStyle='rgba(30,24,15,.55)';g.lineWidth=6;g.beginPath();g.arc(200,125,102,0,7);g.stroke();
     g.strokeStyle='rgba(190,153,98,.45)';g.lineWidth=1.4;g.beginPath();g.arc(200,125,94,0,7);g.stroke();
@@ -1127,7 +1157,7 @@ function body(v,m,source){
   const idx=t==='mil'||N===CITYNAT?6:Math.max(0,NATIONS.indexOf(N)),blast=source?.kind==='shell';
   const angle=blast?Math.atan2(m.y-source.y,m.x-source.x):(m.ox+m.rank)%2?-.5:2.6;
   const a=Number.isFinite(angle)?angle:0,travel=blast?10+Math.random()*12:2+Math.random()*2;
-  const d={x:m.x+Math.cos(a)*travel,y:m.y+Math.sin(a)*travel*.65,kind:isHorse(t)||t==='gen'?'horse':'foot',idx,hus:t==='hus',flip:Math.cos(a)<0,rot:(Math.random()-.5)*.18,flag:m.role==='flag'?N:null,col:t==='mil'?'#6d5238':N.coat,blood:blast?1.35:1};
+  const d={x:m.x+Math.cos(a)*travel,y:m.y+Math.sin(a)*travel*.65,kind:isHorse(t)||t==='gen'?'horse':'foot',scale:m.reg.displayScale||1,idx,hus:t==='hus',flip:Math.cos(a)<0,rot:(Math.random()-.5)*.18,flag:m.role==='flag'?N:null,col:t==='mil'?'#6d5238':N.coat,blood:blast?1.35:1};
   // Reserve a resting position now, but reveal the body only after the fall.
   placeFallen(v,d);const dead=v.dead.pop();
   bloodBurst(v,m.x,m.y,blast?7:4,Math.cos(a),Math.sin(a),blast?9:4,blast?10:5);
@@ -1147,7 +1177,7 @@ function drawBlood(c,b,project=P){
 }
 function fallPose(f){const p=clamp(f.l/f.max,0,1),slide=1-Math.pow(1-p,2);return{x:f.x+(f.dead.x-f.x)*slide,y:f.y+(f.dead.y-f.y)*slide,lift:f.blast?Math.sin(Math.PI*p)*(f.dead.kind==='horse'?12:20):0,p}}
 function drawFall(c,f,px,py,s){
-  const pose=fallPose(f),p=pose.p,blend=clamp((p-.65)/.35,0,1),sc=figureScale(f.r,f.m)*s;
+  const pose=fallPose(f),p=pose.p,blend=clamp((p-.65)/.35,0,1),sc=figureScale(f.r,f.m)*s*(f.r.displayScale||1);
   c.save();c.translate(px,py);c.fillStyle='rgba(20,17,13,.2)';c.beginPath();c.ellipse(0,0,(3+p*5)*s,1.4*s,0,0,7);c.fill();c.restore();
   c.save();c.translate(px,py-pose.lift*s);c.rotate(f.turn*(p*p*1.45));c.scale(sc,sc);c.translate(0,3*p);c.globalAlpha=1-blend;
   if(!drawPaintedFig(c,f.m,f.r,f.N,f.dir,(f.m.hitT||0)+f.l))drawFig(c,f.m,f.r,f.N,f.dir,0);
@@ -1155,7 +1185,7 @@ function drawFall(c,f,px,py,s){
   if(blend){c.save();c.globalAlpha=blend;drawDead(c,f.dead,px,py,s);c.restore()}
 }
 function drawDead(c,d,px,py,s){
-  const sc=(d.kind==='foot'?1.65:1.75)*s;c.save();c.translate(px,py);c.rotate(d.rot);if(d.flip)c.scale(-1,1);
+  const sc=(d.kind==='foot'?1.65:1.75)*s*(d.scale||1);c.save();c.translate(px,py);c.rotate(d.rot);if(d.flip)c.scale(-1,1);
   if(d.blood){c.fillStyle='rgba(91,18,15,.72)';c.beginPath();c.ellipse(.7*sc,.1*sc,(3.8+d.blood)*sc,1.65*sc,-.15,0,7);c.fill();for(let i=0;i<5;i++){const a=i*2.4+d.x;c.beginPath();c.ellipse(Math.cos(a)*(4+i*.4)*sc,Math.sin(a)*2*sc,(.35+i*.07)*sc,.26*sc,a,0,7);c.fill()}}
   c.fillStyle='rgba(20,17,13,.22)';c.beginPath();c.ellipse(0,0,7*sc,1.3*sc,0,0,7);c.fill();
   if(d.kind==='foot'){const set=UNIT_IMAGES?.['fallen-infantry'],im=Array.isArray(set)?set[d.idx]:set;
@@ -1218,18 +1248,18 @@ function figurePose(m,kind,time){
   const linear=clamp((time-p.changed)/p.duration,0,1),mix=linear*linear*(3-2*linear);if(linear===1)p.from=null;
   return{from:p.from,mix:p.from?mix:1};
 }
-function figureMotion(m,r,time){const walk=m.walk??(r.moving?1:0),targets={walk,charge:walk>.1&&!r.broken&&(r.bayonet||r.mode==='charge')?1:0,work:!r.moving&&m.shotT!=null&&time-m.shotT>.4&&(isGun(r.type)?(m.cd||0):r.reload)>0?1:0,drum:r.drumUntil>time?1:r.forming?.5:0};
+function figureMotion(m,r,time){const walk=m.walk??(r.moving?1:0),targets={walk,charge:walk>.1&&!r.broken&&!r.routing&&(r.bayonet||r.mode==='charge')?1:0,work:!r.moving&&m.shotT!=null&&time-m.shotT>.4&&(isGun(r.type)?(m.cd||0):r.reload)>0?1:0,drum:r.drumUntil>time?1:r.forming?.5:0};
   let v=m.paintMotion;if(!v||time<v.time)v=m.paintMotion={...targets,time,drumPhase:time*12};
   const dt=clamp(time-v.time,0,.25),blend=1-Math.exp(-dt*10);for(const key of Object.keys(targets))v[key]+=(targets[key]-v[key])*blend;
   v.drumPhase+=dt*(12+v.drum*10);v.time=time;return v;
 }
 function drawPaintedFig(c,m,r,N,dir,T0){
   if(!UNIT_IMAGES)return false;
-  const t=r.type,gait=m.gait??(T0*7+m.ox),walking=(m.walk??(r.moving?1:0))>.12,phase=Math.sin(gait),charging=walking&&!r.broken&&(r.bayonet||r.mode==='charge');
-  const since=m.shotT!=null&&BV?BV.B.t-m.shotT:99,reloadLen=isGun(t)?(t==='how'?BT.howReload:BT.artReload)*1.25:BT.infReload*1.35;
+  const t=r.type,gait=m.gait??(T0*7+m.ox),walking=(m.walk??(r.moving?1:0))>.12,phase=Math.sin(gait),fleeing=r.broken||r.routing,charging=walking&&!fleeing&&(r.bayonet||r.mode==='charge');
+  const since=m.shotT!=null?T0-m.shotT:99,reloadLen=isGun(t)?(t==='how'?BT.howReload:BT.artReload)*1.25:isHorse(t)?3.2:BT.infReload*1.35;
   let kind=m.role==='drum'&&isFoot(t)?'drummer':m.role==='general'?'general':m.role==='aide'?'aide':m.role==='officer'?(isHorse(t)?'aide':'officer'):m.role==='flag'&&t==='inf'?'colour-bearer':t==='mil'?'militia':t==='hus'?'hussar':isFoot(t)||isGun(t)&&m.role?'infantry':isHorse(t)||t==='gen'?'cavalry':t==='how'&&r.hs!=='ready'?'howitzer-limbered':t==='how'?'howitzer-deployed':'artillery';
-  if(t==='inf'&&!m.role){if(r.broken)kind='infantry-flee';else if(r.bayonet||r.melee)kind='infantry-charge';else if(since<.32)kind='infantry-fire';else if(since<reloadLen&&r.reload>0)kind='infantry-reload';else if(r.bayonetsFixed&&!walking)kind='infantry-charge'}
-  if(t==='mil'&&!m.role){if(r.broken)kind='militia-flee';else if(r.bayonet||r.melee)kind='militia-charge';else if(since<.32)kind='militia-fire';else if(since<reloadLen&&r.reload>0)kind='militia-reload';else if(r.bayonetsFixed&&!walking)kind='militia-charge'}
+  if(t==='inf'&&!m.role){if(fleeing)kind='infantry-flee';else if(r.bayonet||r.melee)kind='infantry-charge';else if(since<.32)kind='infantry-fire';else if(since<reloadLen&&r.reload>0)kind='infantry-reload';else if(r.bayonetsFixed&&!walking)kind='infantry-charge'}
+  if(t==='mil'&&!m.role){if(fleeing)kind='militia-flee';else if(r.bayonet||r.melee)kind='militia-charge';else if(since<.32)kind='militia-fire';else if(since<reloadLen&&r.reload>0)kind='militia-reload';else if(r.bayonetsFixed&&!walking)kind='militia-charge'}
   if(isHorse(t)&&!m.role&&r.melee)kind=t==='hus'?'hussar-melee':'cavalry-melee';
   if(walking){const frame=((Math.floor(gait/1.57)%4)+4)%4+1;
     if(kind==='infantry'||kind==='militia')kind+='-walk'+frame;
@@ -1251,7 +1281,7 @@ function drawPaintedFig(c,m,r,N,dir,T0){
   const recoil=since<.3?(.3-since)*(isGun(t)&&!m.role?9:2.2):0,crouch=isFoot(t)&&since>.3&&since<reloadLen?.035:0;
   const figY=3.5-height*(1-crouch)-bob+recoil*(dir>0?-1:1)*.4,figH=height*(1-crouch);
   const drawBody=(im,alpha)=>{if(!im?.complete||!im.naturalWidth||alpha<=0)return;const w=figH*im.naturalWidth/im.naturalHeight;c.save();c.globalAlpha*=alpha;
-    const articulated=(isFoot(t)&&(m.role||charging)||t==='gen'||isHorse(t)&&m.role)&&motion.walk>.01;
+    const articulated=(isFoot(t)&&(m.role||charging||/-(flee|reload|fire)$/.test(kind))||t==='gen'||isHorse(t)&&m.role)&&motion.walk>.01;
     if(articulated){const cut=.72,legH=figH*(1-cut),legs=isHorse(t)||t==='gen'?4:2,stride=Math.sin(gait)*(charging?1.05:.65)*motion.walk;
       c.drawImage(im,0,0,im.naturalWidth,im.naturalHeight*cut,-w/2,figY,w,figH*cut);
       for(let leg=0;leg<legs;leg++){const sign=leg%2?1:-1;c.save();c.translate(sign*stride*.4,Math.max(0,sign*stride)*-.5);
@@ -1260,6 +1290,16 @@ function drawPaintedFig(c,m,r,N,dir,T0){
   };
   const previousSet=pose.from&&UNIT_IMAGES[pose.from],previousImage=Array.isArray(previousSet)?previousSet[index]:previousSet,blending=previousImage?.complete&&previousImage.naturalWidth;
   if(blending)drawBody(previousImage,1-pose.mix);drawBody(image,blending?pose.mix:1);
+  if(isHorse(t)&&!m.role&&!fleeing&&!r.melee&&since>=0&&since<reloadLen){
+    // Carbines and pistols use the same shot clock as the volley and recoil.
+    const firing=since<.32,loading=!firing&&r.reload>0,reach=firing?1:Math.sin(T0*7+m.ox)*.25;
+    if(firing||loading){c.save();c.translate(1,-5.1);c.rotate(firing?(dir>0?1.25:-1.25):-.3+reach);
+      c.strokeStyle='#d9b18e';c.lineWidth=.65;c.beginPath();c.moveTo(-.5,1);c.lineTo(.3,-.2-reach*.3);c.stroke();
+      c.strokeStyle='#654c31';c.lineWidth=.48;c.beginPath();c.moveTo(0,.8);c.lineTo(0,t==='hus'?-1.4:-3.4);c.stroke();
+      c.strokeStyle='#ddd3ba';c.lineWidth=.2;c.beginPath();c.moveTo(.12,0);c.lineTo(.12,t==='hus'?-1.8:-3.8);c.stroke();
+      if(firing){c.fillStyle=`rgba(255,225,145,${1-since/.32})`;c.beginPath();c.arc(.12,t==='hus'?-1.9:-3.9,.7,0,7);c.fill()}c.restore();
+    }
+  }
   if(isFoot(t)&&!m.role&&(r.bayonetsFixed||r.fixUntil>T0)){
     const fixing=r.fixUntil>T0,progress=fixing?clamp((T0-r.fixStarted)/3,0,1):1;
     c.save();c.translate(1.45,-3.2);c.rotate(fixing?-.12+Math.sin(T0*8+m.rank)*.035:dir>0?2.5:-.25);
@@ -1480,7 +1520,7 @@ function drawBattle(v){
   const c=bctx,B=v.B,k=v.s*Math.min(2,devicePixelRatio||1),o=v.o,NA=NF(o.af),ND=NF(o.df);
   const list=[];let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
   for(const r of B.regs){if(!r.n)continue;const N=r.side?ND:NA,dir=r.side?1:-1;
-    for(const m of r.men)if(m.alive){const alpha=v.paused||B.done?1:clamp((v.acc||0)*30,0,1),q=P((m.px??m.x)+(m.x-(m.px??m.x))*alpha,(m.py??m.y)+(m.y-(m.py??m.y))*alpha);list.push([q[1],m,r,N,dir,q[0],q[2]]);
+    for(const m of r.men)if(m.alive){const alpha=v.paused||B.done?1:clamp((v.acc||0)*30,0,1),q=P((m.px??m.x)+(m.x-(m.px??m.x))*alpha,(m.py??m.y)+(m.y-(m.py??m.y))*alpha);list.push([q[1],m,r,N,dir,q[0],q[2]*(r.displayScale||1)]);
       if(!r.broken){if(q[0]<x0)x0=q[0];if(q[0]>x1)x1=q[0];if(q[1]<y0)y0=q[1];if(q[1]>y1)y1=q[1]}}}
   if(x0>x1){x0=0;x1=FW;y0=0;y1=FH}
   const zt=clamp(Math.min(FW/Math.max(110,x1-x0+30),FH/Math.max(170,y1-y0+50)),2.4,3.6),cam=v.cam||(v.cam={z:zt,x:(x0+x1)/2,y:(y0+y1)/2});
@@ -1548,7 +1588,7 @@ function drawBattle(v){
       continue}
     c.globalAlpha=!operational(m)?.35:r.broken?.7:1;drawMan(c,m,r,N,dir,B.t,px,py,figureScale(r,m)*s)}
   c.globalAlpha=1;c.setTransform(BTF[0],0,0,BTF[0],BTF[1],BTF[2]);
-  for(const r of selOf(v)){const q=P(r.x,r.y),w=66,h=19,x=q[0]-w/2,y=q[1]-35;
+  for(const r of selOf(v).length===1?selOf(v):[]){const q=P(r.x,r.y),w=66,h=19,x=q[0]-w/2,y=q[1]-35;
     c.fillStyle='rgba(17,22,18,.9)';c.fillRect(x,y,w,h);c.fillStyle='#f2e5c8';c.font='6px sans-serif';c.textAlign='center';c.fillText(unitStatus(B,r),q[0],y+7);
     c.fillStyle='#513f34';c.fillRect(x+3,y+11,w-6,4);c.fillStyle=r.mor<30?'#e68b64':'#b8ce8d';c.fillRect(x+3,y+11,(w-6)*clamp(r.mor/100,0,1),4)}
   for(const b of B.balls){const q=P(b.x,b.y);let lift=0;if(b.fly>0&&b.L){const pr=1-b.fly/b.L;lift=Math.sin(Math.PI*pr)*Math.min(40,b.L*.18)*q[2]}
@@ -1587,12 +1627,12 @@ function drawBattle(v){
   c.setTransform(k,0,0,k,0,0);
   if(B.wallHp>0&&B.wallHp<B.wallMax){const hp=B.wallHp/B.wallMax;c.fillStyle='rgba(20,18,14,.75)';c.fillRect(7,7,73,9);c.strokeStyle='#c6aa72';c.lineWidth=.8;c.strokeRect(7.5,7.5,72,8);c.fillStyle=hp>.5?'#b9ad92':hp>.25?'#cb9564':'#cf6050';c.fillRect(9,9,69*hp,5);c.fillStyle='#efe5cf';c.font='9px ui-sans-serif,sans-serif';c.textAlign='left';c.textBaseline='top';c.fillText('Walls',83,6)}
   c.textAlign='center';c.textBaseline='middle';
-  const bn=v.banners[v.banners.length-1],notice=B.routing>=0?cap1(`${fname(B.routing?o.df:o.af)} breaks and flees!`):bn?.t||'Give orders to your selected troops';
+  const bn=v.banners[v.banners.length-1],notice=v.artWait?'Preparing battlefield art…':B.routing>=0?cap1(`${fname(B.routing?o.df:o.af)} breaks and flees!`):bn?.t||'Give orders to your selected troops';
   const noticeEl=$('bnotice');if(noticeEl&&noticeEl.textContent!==notice)noticeEl.textContent=notice;
   if(v.paused&&!B.done){c.fillStyle='rgba(20,18,14,.8)';c.fillRect(0,FH-29,FW,29);c.fillStyle='#f3d58a';c.font='14px ui-sans-serif,sans-serif';c.fillText('Paused · give orders, then Resume',FW/2,FH-14)}
 }
 function drawCommandOverlay(v,c){
-  const sel=selOf(v),z=v.view.z;c.save();c.setTransform(BTF[0],0,0,BTF[0],BTF[1],BTF[2]);
+  const sel=selOf(v),z=v.view.z,markers=new Set();c.save();c.setTransform(BTF[0],0,0,BTF[0],BTF[1],BTF[2]);
   for(let i=0;i<sel.length;i++){
     const r=sel[i],q=P(r.x,r.y),points=r.men.filter(m=>m.alive).map(m=>P(m.x,m.y));if(!points.length)continue;
     const x=Math.min(...points.map(p=>p[0]))-5/z,y=Math.min(...points.map(p=>p[1]-17*p[2]))-4/z;
@@ -1600,8 +1640,11 @@ function drawCommandOverlay(v,c){
     c.strokeStyle='#171a15';c.lineWidth=5/z;c.strokeRect(x,y,w,h);c.strokeStyle='#ffe49d';c.lineWidth=2/z;c.strokeRect(x,y,w,h);
     c.font=`bold ${10/z}px sans-serif`;const label=sel.length===1?r.label:String(i+1),lw=c.measureText(label).width+8/z;
     c.fillStyle='#ffe49d';c.fillRect(x,y-14/z,lw,14/z);c.fillStyle='#171a15';c.textAlign='left';c.fillText(label,x+4/z,y-4/z);
+    if(isFoot(r.type)){const f=frontVector(r),tip=P(r.x+f.x*30,r.y+f.y*30),left=P(r.x+f.x*22-f.y*6,r.y+f.y*22+f.x*6),right=P(r.x+f.x*22+f.y*6,r.y+f.y*22-f.x*6);
+      c.strokeStyle='#ffe49d';c.lineWidth=3/z;c.beginPath();c.moveTo(q[0],q[1]);c.lineTo(tip[0],tip[1]);c.moveTo(left[0],left[1]);c.lineTo(tip[0],tip[1]);c.lineTo(right[0],right[1]);c.stroke();}
     const target=r.forced?.n?r.forced:r.target?.n?r.target:null,dest=r.goal||target;if(!dest)continue;const d=P(dest.x,dest.y),col=r.goal?'#ffe49d':'#ff9880';
     c.setLineDash([5/z,4/z]);c.lineWidth=2/z;c.strokeStyle=col;c.beginPath();c.moveTo(q[0],q[1]);c.lineTo(d[0],d[1]);c.stroke();c.setLineDash([]);
+    const marker=r.goal?`move:${dest.x}:${dest.y}`:`target:${target.id}`;if(markers.has(marker))continue;markers.add(marker);
     c.beginPath();c.ellipse(d[0],d[1],12/z,6/z,0,0,Math.PI*2);c.stroke();c.beginPath();c.moveTo(d[0],d[1]);c.lineTo(d[0],d[1]-23/z);c.stroke();
     c.fillStyle='#171a15';c.fillRect(d[0]-24/z,d[1]-35/z,48/z,13/z);c.fillStyle=col;c.textAlign='center';c.fillText(r.goal?'MOVE':r.forced?'ATTACK':'TARGET',d[0],d[1]-25/z);
   }
@@ -1625,7 +1668,7 @@ function selOf(v){return(v.sel||[]).filter(r=>r.n&&!r.broken)}
 function sideMen(B,s){let n=0;for(const r of B.regs)if(r.side===s&&r.type!=='gen'&&!r.broken)n+=r.n;return n}
 function statHtml(v){return[0,1].map(s=>{const f=s?v.o.df:v.o.af;return`<span><i class="sw" style="background:${NF(f).col}"></i>${cap1(fname(f)).replace(/^The /,'')} ${sideMen(v.B,s)}</span>`}).join('')}
 function unitStatus(B,r){
-  if(r.broken)return 'Routing';
+  if(r.broken||B.routing===r.side)return 'Routing';
   if(fixingBayonets(B,r))return `Fixing bayonets · ${Math.ceil(r.fixUntil-B.t)}s`;
   if(bayonetBraced(B,r))return 'Bayonets braced';
   if(r.forming)return `Forming ${r.form} · ${Math.round((r.formProgress||0)*100)}%`;
@@ -1656,6 +1699,7 @@ function refreshBattleStatus(v){
 }
 const ORDER_HELP={stand:'Stay here; fire at targets in range',ready:'Halt, form line, fire when loaded',advance:'Move toward the enemy; line can fire',hold:'Hold the line and face the enemy',dig:'Stay here and build cover',charge:'Close rapidly and fight in melee',flank:'Move around the enemy’s side',wait:'Stay here without attacking',auto:'Choose targets and attack',shoot:'Use carbines from firing range',fire:'Fire at enemy formations',counter:'Prioritise enemy artillery',walls:'Bombard fortifications'};
 function renderBattleUI(v){
+  const focused=document.activeElement,focusData=focused?.closest?.('#bctl,#bquick')?{...focused.dataset}:null;
   const B=v.B,dis=B.routing>=0?'disabled':'';
   if(v.ps<0){$('bctl').innerHTML='';$('bquick').innerHTML='';return}
   const sel=selOf(v),groups=sel.length?[...new Set(sel.map(r=>grp(r.type)))]:[],has=g=>B.regs.some(r=>r.side===v.ps&&r.n&&grp(r.type)===g),foot=sel.filter(r=>isFoot(r.type));
@@ -1669,10 +1713,11 @@ function renderBattleUI(v){
     ${foot.length?`<div class="order-section"><div class="lbl">2 · Formation</div><div class="row">${[['line','Form line'],['column','March column'],['auto','Automatic']].map(([val,label])=>{const on=foot.every(r=>(r.formOrder||'auto')===val);return `<button class="btn sm ${on?'brass':''}" data-act="bform" data-v="${val}" aria-pressed="${on}" ${dis}>${label}</button>`}).join('')}</div><p class="order-help">Line fires; column cannot. Formation keeps your order and destination. Hold position to form up here.</p></div>`:''}
     ${sel.length||v.armyOrders?`<div class="order-section"><div class="lbl">${foot.length?'3':'2'} · Give an order</div>${v.armyOrders?['foot','horse','guns'].filter(has).map(g=>orders(g,false)).join(''):groups.map(g=>orders(g,true)).join('')}</div>`:'<p class="order-help">Tap your troops on the field, or select a group above. Orders take effect when the battle is running.</p>'}
     ${foot.length?'<div class="order-section"><div class="lbl">Preparation & morale</div><div class="row"><button id="bfix" class="btn sm" data-act="bfix">Fix bayonets</button><button id="bdrum" class="btn sm" data-act="bdrum">Drum rally</button></div><p class="order-help">Bayonets: halt for 3s to prepare for melee. Drums: halt movement and fire for 8s, restoring up to 16 morale.</p></div>':''}
-    ${sel.length?`<div class="order-section"><button class="btn sm ${v.moveMode?'brass':''}" data-act="bmove" ${dis}>${v.moveMode?'Cancel destination':'Move to…'}</button><p class="order-help">${v.moveMode?'Tap a point on the battlefield to move there. Your chosen formation stays active.':'Move to… sets a destination. Tap an enemy to attack it. Tap empty ground to deselect.'}</p></div>`:''}
+    ${sel.length?`<div class="order-section"><button class="btn sm ${v.moveMode?'brass':''}" data-act="bmove" ${dis}>${v.moveMode?'Cancel destination':'Move to…'}</button>${foot.length?`<button class="btn sm ${v.faceMode?'brass':''}" data-act="bface" ${dis}>${v.faceMode?'Cancel facing':'Face toward…'}</button>`:''}<p class="order-help">${v.faceMode?'Tap a point to face it. Infantry halt and turn their ranks; the gold arrow marks their front.':v.moveMode?'Tap a point on the battlefield to move there. Your chosen formation stays active.':'Move to… sets a destination. Tap an enemy to attack it. Tap empty ground to deselect.'}</p></div>`:''}
     <details class="order-section"><summary>Why these troops are acting this way</summary><div class="battle-advice" id="badvice"></div></details>
     ${v.more?`<div class="row"><button class="btn sm" data-act="bselg" data-g="all" ${dis}>Everyone</button><button class="btn sm" data-act="barmy">${v.armyOrders?'Unit orders':'Army orders'}</button>${sel.length?'<button class="btn sm" data-act="bclear">Clear orders</button>':''}<button class="btn sm" data-act="branges">Gun ranges</button><button class="btn sm" data-act="bspeed">Speed ×${v.speed}</button><button class="btn sm red" data-act="bretreat" ${dis}>All retreat</button><button class="btn sm" data-act="bskip" ${dis}>Skip to result</button></div>`:''}`;
   refreshBattleStatus(v);
+  if(focusData){const buttons=[...($('battle').querySelectorAll?.('button')||[])];(buttons.find(b=>!b.disabled&&['act','g','v'].every(k=>b.dataset[k]===focusData[k]))||$('bpause'))?.focus?.()}
 }
 // zoom and pan: pinch or wheel to zoom, drag to pan, Follow to return to the automatic camera
 const PTR=new Map();let pinch0=0,dragged=false;
@@ -1681,7 +1726,7 @@ function camZoom(v,f){const m=camManual(v);m.z=clamp(m.z*f,1,5)}
 function camFort(v){if(!v.o.fortKind)return;v.fortCam=true;v.manual={z:v.o.fortKind==='capital'?1.28:v.o.fortKind==='palisade'?1.7:1.5,x:FW/2,y:105};$('bzauto').classList.remove('brass');$('bzfort').classList.add('brass')}
 function hitUnit(v,cx,cy){const rc=bcv.getBoundingClientRect(),sx=(cx-rc.left)/v.s,sy=(cy-rc.top)/v.s,vx=v.view.L+sx/v.view.z,vy=v.view.Tp+sy/v.view.z;
   let best=null,bd=20/Math.sqrt(v.view.z)+6;for(const r of v.B.regs){if(!r.n||r.type==='gen')continue;const q=P(r.x,r.y),d=Math.hypot(q[0]-vx,q[1]-4*q[2]-vy);if(d<bd){bd=d;best=r}}return{best,vx,vy}}
-bcv.addEventListener('pointerdown',e=>{const v=BV;if(v&&!v.resolving&&v.view&&v.ps>=0&&v.B.routing<0&&PTR.size===0){const h=hitUnit(v,e.clientX,e.clientY);v.dragUnit=h.best&&h.best.side===v.ps&&!h.best.broken?h.best:null;v.dragTo=null}
+bcv.addEventListener('pointerdown',e=>{const v=BV;if(v&&!v.resolving&&v.view&&v.ps>=0&&v.B.routing<0&&PTR.size===0){const h=hitUnit(v,e.clientX,e.clientY);v.dragUnit=!v.faceMode&&h.best&&h.best.side===v.ps&&!h.best.broken?h.best:null;v.dragTo=null}
   PTR.set(e.pointerId,{x:e.clientX,y:e.clientY});dragged=false;if(PTR.size===2&&v)v.dragUnit=null;if(PTR.size===2){const[a,b]=[...PTR.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y)}});
 bcv.addEventListener('pointermove',e=>{const v=BV,p=PTR.get(e.pointerId);if(!v||!p||v.resolving)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;
   if(PTR.size===1&&v.dragUnit){if(!dragged&&Math.hypot(dx,dy)<7)return;dragged=true;const h=hitUnit(v,e.clientX,e.clientY);v.dragTo={x:h.vx,y:h.vy};return}
@@ -1689,7 +1734,7 @@ bcv.addEventListener('pointermove',e=>{const v=BV,p=PTR.get(e.pointerId);if(!v||
   else if(PTR.size===2){PTR.set(e.pointerId,{x:e.clientX,y:e.clientY});const[a,b]=[...PTR.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch0){camZoom(v,d/pinch0);dragged=true}pinch0=d}});
 const ptrEnd=e=>{const v=BV;
   if(v&&v.dragUnit&&v.dragTo&&dragged&&e.type==='pointerup'){const lead=v.dragUnit,sel0=selOf(v),sel=sel0.includes(lead)?sel0:[lead],g=UP(v.dragTo.x,v.dragTo.y);
-    for(const r of sel){r.goal={x:clamp(g.x+r.x-lead.x,10,FW-10),y:clamp(g.y+r.y-lead.y,10,FH-10)};r.forced=null;r.dug=false}
+    for(const r of sel){r.manualFace=false;r.goal={x:clamp(g.x+r.x-lead.x,10,FW-10),y:clamp(g.y+r.y-lead.y,10,FH-10)};r.forced=null;r.dug=false}
     v.sel=sel;v.B.fx.banner(`${sel.length>1?sel.length+' units move':lead.label+' moves'} to the new position`);SND.command();renderBattleUI(v)}
   if(v){v.dragUnit=null;v.dragTo=null}PTR.delete(e.pointerId);if(PTR.size<2)pinch0=0};
 bcv.addEventListener('pointerup',ptrEnd);bcv.addEventListener('pointercancel',ptrEnd);
@@ -1702,12 +1747,13 @@ bcv.addEventListener('click',e=>{
   let best=null,bd=20/Math.sqrt(v.view.z)+6;
   for(const r of v.B.regs){if(!r.n||r.type==='gen')continue;const q=P(r.x,r.y),d=Math.hypot(q[0]-vx,q[1]-4*q[2]-vy);if(d<bd){bd=d;best=r}}
   const sel=selOf(v);
-  if(best&&best.side===v.ps){v.moveMode=false;v.sel=sel.includes(best)?sel.filter(r=>r!==best):[...sel,best]}
+  if(v.faceMode&&sel.length){const g=UP(vx,vy);for(const r of sel)faceFormation(r,g.x,g.y);v.faceMode=false;v.B.fx.banner('Infantry halt and turn to the marked front');SND.command()}
+  else if(best&&best.side===v.ps){v.moveMode=false;v.sel=sel.includes(best)?sel.filter(r=>r!==best):[...sel,best]}
   else if(sel.length){
-    if(best){for(const r of sel){r.forced=best;r.goal=null;if(isFoot(r.type)&&!['charge','ready'].includes(ordOf(v.B,r)))r.ord='advance';if(isHorse(r.type)&&!['shoot','flank'].includes(ordOf(v.B,r)))r.ord='charge'}
+    if(best){for(const r of sel){r.manualFace=false;r.forced=best;r.goal=null;if(isFoot(r.type)&&!['charge','ready'].includes(ordOf(v.B,r)))r.ord='advance';if(isHorse(r.type)&&!['shoot','flank'].includes(ordOf(v.B,r)))r.ord='charge'}
       v.B.fx.banner(`${sel.length>1?sel.length+' units':sel[0].label} ordered against ${best.label}`)}
     else if(v.moveMode){const g=UP(vx,vy),cx=sel.reduce((a,r)=>a+r.x,0)/sel.length,cy=sel.reduce((a,r)=>a+r.y,0)/sel.length;
-      for(const r of sel){r.goal={x:clamp(g.x+r.x-cx,10,FW-10),y:clamp(g.y+r.y-cy,10,FH-10)};r.forced=null;r.dug=false}
+      for(const r of sel){r.manualFace=false;r.goal={x:clamp(g.x+r.x-cx,10,FW-10),y:clamp(g.y+r.y-cy,10,FH-10)};r.forced=null;r.dug=false}
       v.B.fx.banner(`${sel.length>1?sel.length+' units move':sel[0].label+' moves'} to the new position`)}
     if(best||v.moveMode)SND.command();else v.sel=[];v.moveMode=false;
   }
@@ -1721,7 +1767,7 @@ function liveBattle(o){
     const reviewFire=location.hash==='#practice-fire'||location.hash==='#practice-close';
     if(reviewFire&&ps>=0)B.orders[ps]={foot:'advance',horse:'charge',guns:'fire'};
     const v={B,o,ps,more:!!o.guided,speed:PREFS.speed||1,resolve,smoke:[],flash:[],dust:[],boom:[],spark:[],spray:[],blood:[],falls:[],banners:[],houses:[],dead:[],dragUnit:null,dragTo:null,showRanges:false,acc:0,last:0,finished:false,closed:false,sel:[],low:false,frameAvg:0,frameCount:0};
-    v.paused=!!o.guided;BV=v;$('battle').hidden=false;$('bres').hidden=true;$('bzauto').classList.add('brass');
+    v.paused=!!o.guided;BV=v;$('battle').hidden=false;$('bres').hidden=true;syncOverlayFocus();$('bzauto').classList.add('brass');
     if(location.hash==='#practice-close')v.manual={z:4,x:FW/2,y:290};
     if(location.hash==='#review-fort')camFort(v);
     if(location.hash==='#review-forest'||location.hash==='#review-river'||location.hash==='#review-hills')v.manual={z:1.25,x:FW/2,y:FH/2};
@@ -1730,16 +1776,18 @@ function liveBattle(o){
     $('btitle').textContent=`Battle of ${placeName(o.p)}`;
     $('bsub').textContent=cap1(`${fname(o.af)} attacks ${o.def&&cnt(o.def)?fname(o.df):o.df===CITYF?'the garrison':'the '+fname(o.df)+' garrison'} · ${TER[o.terrain||tl.t].n.toLowerCase()}${o.river?' across a river':''}${wk==='fort'?' · stone star fort':wk==='palisade'?' · wooden fort':wk==='capital'?' · city walls':''}`);
     $('bzfort').hidden=!wk;$('bzfort').classList.toggle('brass',location.hash==='#review-fort');
-    renderBattleUI(v);sizeBattle(v);drawGround(v);B.fx=fxOf(v);SND.init();SND.syncBattle(v);SND.music(true,true);
-    if(reviewFire)for(let i=0;i<(location.hash==='#practice-close'?150:690)&&!B.done;i++){stepBattle(B,1/30);tickFx(v,1/30)}
+    renderBattleUI(v);$('bpause')?.focus?.();sizeBattle(v);drawGround(v);B.fx=fxOf(v);SND.init();SND.syncBattle(v);SND.music(true,true);
+    let reviewWarmup=reviewFire?(location.hash==='#practice-close'?150:690):0;
     if(location.hash!=='#review-fort'){if(ps>=0)B.fx.banner('Your troops stand ready. Give your orders.');const gn=o.gen||[];if(gn[0]||gn[1])B.fx.banner([gn[0]?`General ${gn[0].name} commands the attack`:'',gn[1]?`General ${gn[1].name} holds the field`:''].filter(Boolean).join(' · '))}
     let uiT=0;
     const frame=now=>{
       if(v.closed)return;
       const dt=v.last?Math.min(.1,(now-v.last)/1000):0;v.last=now;
+      v.artWait=battleTerrainPending>0;
+      if(!v.artWait&&reviewWarmup){for(let i=0;i<reviewWarmup&&!B.done;i++){stepBattle(B,1/30);tickFx(v,1/30)}reviewWarmup=0}
       if(dt){v.frameAvg=v.frameAvg?v.frameAvg*.96+dt*.04:dt;if(++v.frameCount>120){v.low=v.frameAvg>1/29;v.frameCount=0}}
       let advanced=0;
-      if(!B.done&&!v.paused&&!v.resolving){v.acc+=dt*v.speed*BATTLE_PACE;let n=0;while(v.acc>=1/30&&n++<16){stepBattle(B,1/30);v.acc-=1/30;advanced+=1/30}}
+      if(!v.artWait&&!B.done&&!v.paused&&!v.resolving){v.acc+=dt*v.speed*BATTLE_PACE;let n=0;while(v.acc>=1/30&&n++<16){stepBattle(B,1/30);v.acc-=1/30;advanced+=1/30}}
       if(!v.paused&&!B.done){if(B.regs.some(r=>r.n&&r.moving&&isHorse(r.type))){SND.hooves();SND.neigh()}
         SND.ambience()}
       SND.syncBattle(v);
@@ -1761,7 +1809,7 @@ function finishBattle(v){
    <p style="color:var(--muted);font-size:13px">${cap1(v.result.aw?fname(o.af):o.df===CITYF?'the free city':fname(o.df))} holds the field.${B.wallMax&&B.wallHp<B.wallMax?` The walls stand at ${Math.round(B.wallHp/B.wallMax*100)}%.`:''}${B.genDied.some(Boolean)?' A general has fallen.':''} The fallen lie where they fell.</p>
    <h3>Why the battle ended</h3><p>${esc(v.result.explanation[0])}</p>${v.result.explanation[1]?`<p class="note">${esc(v.result.explanation[1])}</p>`:''}${v.result.explanation.length>1?`<details><summary>Recorded turning points</summary><ul>${v.result.explanation.slice(1).map(t=>`<li>${esc(t)}</li>`).join('')}</ul><p>Recorded events from this battle. Times use the battle clock.</p></details>`:''}
    <button class="btn brass" data-act="bdone">Return to the map</button>`;
-  $('bres').hidden=false;
+  $('bres').hidden=false;syncOverlayFocus();$('bres').querySelector?.('button')?.focus?.();
 }
 
 /* ============ rendering: map ============ */
@@ -1833,7 +1881,17 @@ function moveTargets(){
   if(!a||a.f!==0||a.mv<=0||S.over||UI.busy)return[];
   return nbrs(a.p).filter(q=>canMove(a,q)).map(q=>({p:q,fight:needsFight(0,q)||(T(q).o!=null&&T(q).o!==0&&atWar(0,T(q).o))}));
 }
+function reducedMotion(){return typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches}
+function campaignEffect(p,label,army=null,from=null){
+  if(UI.headless)return;
+  const now=performance.now();UI.mapFx=(UI.mapFx||[]).filter(e=>(e.t==null||now-e.t<e.duration)&&(!army||e.army!==army));
+  UI.mapFx.push({p,label,army,from,t:UI.busy||topOverlay()?null:now,duration:reducedMotion()?1600:1100});UI.mapFx=UI.mapFx.slice(-12);scheduleMapFx();
+}
+function scheduleMapFx(){if(UI.mapFrame||UI.headless||UI.busy||topOverlay())return;UI.mapFrame=requestAnimationFrame(()=>{UI.mapFrame=null;if(!S)return;draw();if(UI.mapFx?.length)scheduleMapFx()})}
+function campaignMarker(a){const e=(UI.mapFx||[]).find(e=>e.army===a.id&&e.p===a.p&&e.from!=null),to=G.c[a.p];if(!e||reducedMotion())return to;
+  const t=clamp((performance.now()-(e.t??performance.now()))/650,0,1),q=t*t*(3-2*t),from=G.c[e.from];if(t===1)return to;return[from[0]+(to[0]-from[0])*q,from[1]+(to[1]-from[1])*q]}
 function draw(){
+  if(!UI.busy&&!topOverlay()){for(const e of UI.mapFx||[])if(e.t==null)e.t=performance.now();if(UI.mapFx?.length)scheduleMapFx()}
   ctx.clearRect(0,0,MW*ts,MH*ts);
   for(let p=0;p<G.n;p++)drawTerrain(p);
   drawRivers();
@@ -1856,7 +1914,7 @@ function draw(){
     for(let p=0;p<G.n;p++){if(T(p).t==='water')continue;const x=G.c[p][0]*ts,y=(G.c[p][1]+.62)*ts,nm=placeName(p);ctx.lineWidth=2.6;ctx.strokeStyle='rgba(239,229,207,.75)';ctx.strokeText(nm,x,y);ctx.fillStyle='#2a2016';ctx.fillText(nm,x,y)}}
   for(const m of moveTargets()){ctx.save();provPath(m.p);ctx.clip();ctx.setLineDash([5,4]);ctx.lineWidth=4;ctx.strokeStyle=m.fight?'#c0392b':'#f3d58a';provPath(m.p);ctx.stroke();ctx.restore()}
   for(const a of S.armies){
-    const N=NF(a.f),bwid=ts*.76,bh=ts*.36,bx=G.c[a.p][0]*ts-bwid/2,by=(G.c[a.p][1]+.08)*ts;
+    const N=NF(a.f),point=campaignMarker(a),bwid=ts*.76,bh=ts*.36,bx=point[0]*ts-bwid/2,by=(point[1]+.08)*ts;
     ctx.fillStyle='rgba(18,16,12,.3)';ctx.beginPath();ctx.ellipse(bx+bwid*.58,by+bh+2,bwid*.65,bh*.25,0,0,7);ctx.fill();
     ctx.fillStyle=N.col2;ctx.beginPath();ctx.moveTo(bx,by+bh*.12);ctx.lineTo(bx+bwid,by+bh*.12);ctx.lineTo(bx+bwid+2,by+bh+2);ctx.lineTo(bx+2,by+bh+2);ctx.closePath();ctx.fill();
     const face=ctx.createLinearGradient(bx,by,bx,by+bh);face.addColorStop(0,N.col2);face.addColorStop(.24,N.col);face.addColorStop(1,N.col2);
@@ -1871,6 +1929,10 @@ function draw(){
     if(a.gen){star(bx,by,5,ts*.1,ts*.045);ctx.fillStyle='#f3d58a';ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=.8;ctx.stroke()}
     if(a.f===0&&a.mv>0&&!S.over){ctx.fillStyle='#f3d58a';ctx.beginPath();ctx.arc(bx+bwid,by,ts*.07,0,7);ctx.fill();ctx.strokeStyle=INK;ctx.stroke()}
   }
+  const now=performance.now();UI.mapFx=(UI.mapFx||[]).filter(e=>e.t==null||now-e.t<e.duration);
+  for(const e of UI.mapFx){if(e.t==null)continue;const q=clamp((now-e.t)/e.duration,0,1),x=G.c[e.p][0]*ts,y=G.c[e.p][1]*ts;ctx.save();
+    ctx.globalAlpha=reducedMotion()?1:Math.min(1,(1-q)*3);ctx.strokeStyle='#fff0ad';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,ts*(reducedMotion()?.45:.25+q*.4),0,Math.PI*2);ctx.stroke();
+    ctx.font='bold 12px sans-serif';ctx.textAlign='center';const w=ctx.measureText(e.label).width+12;ctx.fillStyle='#262218';ctx.fillRect(x-w/2,y-ts*.85-14,w,19);ctx.fillStyle='#fff0ad';ctx.fillText(e.label,x,y-ts*.85);ctx.restore();}
   if(S.sel!=null){ctx.save();provPath(S.sel);ctx.clip();ctx.lineWidth=4;ctx.strokeStyle='#fff6d8';provPath(S.sel);ctx.stroke();ctx.restore()}
 }
 function deselectMapArmy(){
@@ -2157,21 +2219,37 @@ function paintHome(){
   const vg=g.createLinearGradient(0,hz+H*.16,0,H);vg.addColorStop(0,'rgba(10,8,6,0)');vg.addColorStop(.35,'rgba(10,8,6,.42)');vg.addColorStop(1,'rgba(10,8,6,.85)');g.fillStyle=vg;g.fillRect(0,hz+H*.16,W,H);
 }
 function showHome(){
-  $('home').hidden=false;paintHome();SND.music(true,false);
+  $('home').hidden=false;syncOverlayFocus();paintHome();SND.music(true,false);
   const saved=S&&!S.over&&S.started!==false;
   $('hmenu').innerHTML=`${saved?`<button class="btn brass" data-act="hcont">Continue<small>${S.fac[0].name} · ${dateStr()} · ${DIFF[S.diff].n}</small></button>`:''}
    <button class="btn ${saved?'':'brass'}" data-act="new">New campaign<small>Choose your crown and how hard your rivals fight</small></button>
    <button class="btn" data-act="practice">Practice battle<small>A skirmish that leaves the campaign untouched</small></button>
    <button class="btn" data-act="settings">Settings<small>Battles, sound and speed</small></button>
    <button class="btn" data-act="help">How to play</button>`;
+  $('home').querySelector?.('button')?.focus?.();
 }
-function hideHome(){$('home').hidden=true;startBattleArt();SND.music(true,false)}
+function hideHome(){$('home').hidden=true;syncOverlayFocus();$('endbtn')?.focus?.();startBattleArt();SND.music(true,false)}
 
 /* ============ modals ============ */
-function openModal(html){$('card').innerHTML=html;$('modal').hidden=false}
-function closeModal(){$('modal').hidden=true}
+function topOverlay(){return !$('modal').hidden?$('modal'):!$('battle').hidden?(!$('bres').hidden?$('bres'):$('battle')):!$('home').hidden?$('home'):null}
+function syncOverlayFocus(){const top=topOverlay();if(top&&UI.mapFx){const now=performance.now();UI.mapFx=UI.mapFx.filter(e=>e.t==null||now-e.t<e.duration);for(const e of UI.mapFx)e.t=null}for(const id of ['app','home','battle'])$(id).inert=!!top&&$(id)!==top&&!(id==='battle'&&top===$('bres'));for(const id of ['bctl','bquick','bzoom','bcv'])$(id).inert=top===$('bres')}
+function openModal(html){
+  const wasOpen=!$('modal').hidden,active=document.activeElement,act=wasOpen?active?.dataset?.act:null,value=active?.dataset?.v;
+  if(!wasOpen)UI.modalReturn=active;
+  $('card').innerHTML=html;$('modal').hidden=false;syncOverlayFocus();
+  const buttons=[...($('card').querySelectorAll?.('button,input,select,[tabindex="0"]')||[])];
+  (buttons.find(b=>act&&b.dataset.act===act&&b.dataset.v===value)||buttons[0]||$('card')).focus?.();
+}
+function closeModal(){$('modal').hidden=true;syncOverlayFocus();scheduleMapFx();const back=UI.modalReturn;UI.modalReturn=null;if(back?.isConnected&&!back.closest?.('[inert]'))back.focus?.();else (topOverlay()?.querySelector?.('button')||$('endbtn'))?.focus?.()}
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;const top=topOverlay();if(!top)return;
+  const nodes=[...(top.querySelectorAll?.('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,a[href],[tabindex="0"]')||[])].filter(n=>!n.closest('[hidden],[inert]')&&n.getClientRects().length);
+  if(!nodes.length){e.preventDefault();return}const i=nodes.indexOf(document.activeElement);
+  if(i<0||e.shiftKey&&i===0||!e.shiftKey&&i===nodes.length-1){e.preventDefault();nodes[e.shiftKey?nodes.length-1:0].focus()}
+});
 function showReport(){
   if(UI.headless)return;
+  S.inbox=S.inbox.filter(validEnvoy);
   if(S.over){openModal(`<h2>${S.over.win?'Victory':'Defeat'}</h2><p>${S.over.why}</p><div class="lbl">Your rivals will remember</div><ul>${councilNotes().map(t=>`<li>${t}</li>`).join('')}</ul><button class="btn brass" data-act="new">Begin a new campaign</button><button class="btn" data-act="close">Look at the map</button>`);return}
   if(!S.report.length&&!S.inbox.length){closeModal();return}
   openModal(`<h2>${dateStr()}</h2>${S.report.length?`<ul>${S.report.map(m=>`<li>${m}</li>`).join('')}</ul>`:''}${S.inbox.map((m,i)=>msgHtml(m,i)).join('')}${S.inbox.length?'<p style="color:var(--muted);font-size:13px">Answer every envoy before the season can end.</p>':''}<button class="btn brass" data-act="close">To your orders</button>`);
@@ -2181,7 +2259,7 @@ function helpHtml(){return`<h2>How to play</h2><ul>
 <li><b>Money and people.</b> Every province pays gold by its terrain and size. Buildings, villages and towns pay more. People are needed to raise troops; houses, villages and towns give them room to grow.</li>
 <li><b>Villages and free cities</b> are neutral. Claim villages by marching in, then grow them into towns. Court the free cities with gifts and protection, or declare war and storm their walls.</li>
 <li><b>Armies</b> march one province at a time; horse alone marches two. Connected built roads halve movement cost (two provinces for infantry, four for cavalry). Battles end movement. Before committing, cancel your attack or retreat a defending army to empty friendly neighbouring land; withdrawal surrenders the province and its garrison. Entering a river ends the move. You must declare war before marching into anyone's land. Appoint named generals to lead your armies.</li>
-<li><b>Battles are live.</b> Tap a unit to command it alone, tap an enemy to attack it, or choose Move to… then tap a destination. Dragging a unit also moves it. Tap empty ground to clear selection. Form line and March column let troops dress their ranks to the drums. Fix bayonets takes three seconds before you charge or hold a steady line against frontal cavalry. Fire when ready holds position and fires at clear targets in range once the line has formed and reloaded. Hit enemies in the flank or rear for double effect. Tired men fight worse; let them rest. Howitzers must unlimber before they fire and wreck walls. Lose officers, colours and drummers, and men waver and break.</li>
+<li><b>Battles are live.</b> Tap a unit to command it alone, tap an enemy to attack it, or choose Move to… then tap a destination. Dragging a unit also moves it. Tap empty ground to clear selection. Face toward… halts infantry and turns their ranks; the gold arrow shows the front. Turning takes time and stops firing. A new combat order releases a manually held facing. Forest groves and the raised hill give cover to either side while occupied. Supporting troops outside a small fort receive no wall protection. Form line and March column let troops dress their ranks to the drums. Fix bayonets takes three seconds before you charge or hold a steady line against frontal cavalry. Fire when ready holds position and fires at clear targets in range once the line has formed and reloaded. Hit enemies from the flank for ×1.5 effect or the rear for ×2; positioning determines the bonus. Tired men fight worse; let them rest. Howitzers must unlimber before they fire and wreck walls. Lose officers, colours and drummers, and men waver and break.</li>
 <li><b>Construction.</b> Buildings take 1–3 seasons and cost gold up front. Upgrade barracks to level 2 for dragoons; a basic foundry casts field guns and level 2 adds howitzers. Economic upgrades improve output. One building, upgrade or road project can run in each province. Progress bars appear in Orders and Realm; capture destroys unfinished projects.</li>
 <li><b>Spies.</b> Select a foreign army, or Scout in Diplomacy. Pay 20 gold for a 75% chance of a strength report. Capture loses the payment and 15 relations. Reports are dated snapshots, marked outdated after two seasons. One mission per army each season.</li>
 <li><b>Recruitment.</b> Militia are raised from houses and settlements, not barracks, for 3 gold, 1 person and 2 popularity. Militia take 1 season, line infantry 2, dragoons and field guns 3, howitzers 4. Training runs in parallel and is listed in Orders and Realm. Paid troops join at their training province; losing it loses the recruits. Hired hussars arrive immediately.</li>
@@ -2249,24 +2327,26 @@ document.addEventListener('click',async e=>{
     if(act==='branges'){v.showRanges=!v.showRanges;renderBattleUI(v);return}
     if(act==='bz'){if(d.v==='auto'){v.manual=null;v.fortCam=false;$('bzauto').classList.add('brass');$('bzfort').classList.remove('brass')}else if(d.v==='fort')camFort(v);else{camZoom(v,d.v==='in'?1.35:1/1.35);$('bzfort').classList.remove('brass')}return}
     if(act==='bo'){
+      v.faceMode=false;
       if(d.v==='advance')v.trainedOrder=true;if(d.v==='flank')v.trainedFlank=true;
       const selected=d.g.startsWith('sel-'),group=selected?d.g.slice(4):d.g;
       const units=(selected?selOf(v):v.B.regs.filter(r=>r.side===v.ps&&r.n)).filter(r=>grp(r.type)===group);
       if(!selected)v.B.orders[v.ps][group]=d.v;
       v.moveMode=false;
-      for(const r of units){r.ord=selected?d.v:null;r.goal=null;r.forced=null;r.flanked=false;r.flankPoint=null;if(d.v!=='dig'){r.dug=false;r.digT=0}if(d.v==='ready'){orderFormation(r,'line');r.target=null;r.retarget=0}if(d.v==='charge'&&isFoot(r.type)&&!r.formOrder)changeFormation(r,'line')}
+      for(const r of units){r.manualFace=false;r.ord=selected?d.v:null;r.goal=null;r.forced=null;r.flanked=false;r.flankPoint=null;if(d.v!=='dig'){r.dug=false;r.digT=0}if(d.v==='ready'){orderFormation(r,'line');r.target=null;r.retarget=0}if(d.v==='charge'&&isFoot(r.type)&&!r.formOrder)changeFormation(r,'line')}
       if(units.length)v.B.fx.banner(`${units.length} formation${units.length===1?'':'s'}: ${ORDN[d.v]}`);
       SND.command();if(d.v==='charge')SND.bugle();renderBattleUI(v)
     }    else if(act==='brally'){const g=v.B.general[v.ps];if(g?.alive&&v.B.t>=(v.rallyAt||0)){let n=0;for(const r of v.B.regs)if(r.side===v.ps&&r.type!=='gen'&&r.n&&Math.hypot(r.x-g.x,r.y-g.y)<150){r.mor=Math.min(100,r.mor+18);n++}v.rallyAt=v.B.t+60;battleInsight(v.B,`rally-${v.ps}-${Math.floor(v.B.t)}`,`${sideName(v.ps)} used Rally: ${n} nearby formations received up to 18 morale.`,2);v.B.fx.banner(`${n} nearby formations hear the rally`);SND.bugle()}else v.B.fx.banner(g?.alive?`Rally ready in ${Math.ceil(v.rallyAt-v.B.t)} seconds`:'A living commander is needed to rally troops');renderBattleUI(v)}
     else if(act==='bfix'){let changed=false;for(const r of selOf(v))changed=fixBayonets(v.B,r)||changed;v.moveMode=false;if(changed)SND.command();renderBattleUI(v)}
     else if(act==='bdrum'){for(const r of selOf(v))drumRally(v.B,r);SND.rallyDrum();renderBattleUI(v)}
-    else if(act==='bmove'){v.moveMode=!v.moveMode;renderBattleUI(v)}
+    else if(act==='bface'){v.faceMode=!v.faceMode;v.moveMode=false;renderBattleUI(v)}
+    else if(act==='bmove'){v.faceMode=false;v.moveMode=!v.moveMode;renderBattleUI(v)}
     else if(act==='bform'){for(const r of selOf(v))if(isFoot(r.type))orderFormation(r,d.v);v.moveMode=false;v.B.fx.banner(`Formation: ${d.v}. Current orders continue.`);SND.command();renderBattleUI(v)}
     else if(act==='bmore'){v.more=!v.more;renderBattleUI(v)}
     else if(act==='barmy'){v.armyOrders=!v.armyOrders;v.sel=[];renderBattleUI(v)}
     else if(act==='bclear'){for(const r of selOf(v)){r.ord=null;r.forced=null;r.goal=null}renderBattleUI(v)}
-    else if(act==='bdesel'){v.sel=[];v.moveMode=false;renderBattleUI(v)}
-    else if(act==='bselg'){v.moveMode=false;v.sel=v.B.regs.filter(r=>r.side===v.ps&&r.n&&r.type!=='gen'&&!r.broken&&(d.g==='all'||grp(r.type)===d.g));renderBattleUI(v)}
+    else if(act==='bdesel'){v.faceMode=false;v.sel=[];v.moveMode=false;renderBattleUI(v)}
+    else if(act==='bselg'){v.faceMode=false;v.moveMode=false;v.sel=v.B.regs.filter(r=>r.side===v.ps&&r.n&&r.type!=='gen'&&!r.broken&&(d.g==='all'||grp(r.type)===d.g));renderBattleUI(v)}
     else if(act==='bretreat'){v.paused=false;rout(v.B,v.ps,`${sideName(v.ps)} withdrew on your retreat order.`);renderBattleUI(v)}
     else if(act==='bpause'){v.paused=!v.paused;if(!v.paused)v.trainedResume=true;renderBattleUI(v)}
     else if(act==='bspeed'){const speeds=[.5,1,2,4];v.speed=speeds[(speeds.indexOf(v.speed)+1)%speeds.length];renderBattleUI(v)}
@@ -2275,7 +2355,7 @@ document.addEventListener('click',async e=>{
       $('bctl').innerHTML='<div class="bsel" role="status">Resolving the battle…</div>';
       try{await runToEndAsync(v.B)}catch(err){console.error(err);v.B.fx=fx;v.B.fx.banner('Could not finish automatically. Resume to continue.')}finally{v.B.fx=fx;v.resolving=false;renderBattleUI(v)}
     }
-    else if(act==='bdone'&&v.result){v.closed=true;$('battle').hidden=true;BV=null;SND.music(true,false);v.resolve(v.result)}
+    else if(act==='bdone'&&v.result){v.closed=true;$('battle').hidden=true;syncOverlayFocus();BV=null;$('endbtn')?.focus?.();SND.music(true,false);v.resolve(v.result)}
     return;
   }
   if(act!=='resetmem'&&act!=='demolish'&&act!=='cwar'&&!(act==='dip'&&d.op==='war'))UI.confirm=null;

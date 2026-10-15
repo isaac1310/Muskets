@@ -23,7 +23,12 @@ function makeBattle(o){
   if(Wd){const n=o.fortKind==='capital'?24:12;B.segHp=o.fortKind==='palisade'?18:30;B.seg=Array(n).fill(B.segHp)}
   const g=o.gar||zeroU(),a=o.att,d=o.def||zeroU();
   B.k=Math.min(1,1200/Math.max(1,menOfU(a),menOfU(addU(d,g))));
+  // Small forts cannot house a field army at open-field figure density. Apply the
+  // same representation scale to both sides, then place supporting troops outside.
+  if(['fort','palisade'].includes(B.fortKind))B.k=Math.min(B.k,180/Math.max(1,menOfU(addU(d,g))));
+  B.groves=B.terrain==='forest'?[[52,190,42,68],[348,190,42,68],[52,430,42,68],[348,430,42,68],[125,310,43,40],[275,310,43,40]].filter(g=>!B.river||Math.abs(g[1]-B.river)>55):[];
   deploy(B,0,a,null);deploy(B,1,d,g);
+  if(['fort','palisade'].includes(B.fortKind))deployFortSupport(B);
   B.start=[sideStr(B,0),sideStr(B,1)];
   return B;
 }
@@ -37,13 +42,13 @@ function staff(B,r,back,w,depth,drum){addMan(B,r,0,-12*back,9,1,'officer');addMa
 function deploy(B,side,u,gar){
   const back=side===0?1:-1,wk=B.fortKind,front=side===0?(wk?400:385):(wk==='palisade'?150:wk?135:215);
   const bats=[];
-  if(u.inf){const nb=Math.min(8,u.inf),n=menOf(B,'inf',u.inf);for(let i=0;i<nb;i++)bats.push({t:'inf',n:Math.round(n*(i+1)/nb)-Math.round(n*i/nb),gar:false})}
-  if(u.mil){const nb=Math.min(3,u.mil),n=menOf(B,'mil',u.mil);for(let i=0;i<nb;i++)bats.push({t:'mil',n:Math.round(n*(i+1)/nb)-Math.round(n*i/nb),gar:false})}
+  if(u.inf){const n=menOf(B,'inf',u.inf),nb=Math.min(8,u.inf,side===1&&B.fortKind?Math.ceil(n/32):8);for(let i=0;i<nb;i++)bats.push({t:'inf',n:Math.round(n*(i+1)/nb)-Math.round(n*i/nb),gar:false})}
+  if(u.mil){const n=menOf(B,'mil',u.mil),nb=Math.min(3,u.mil,side===1&&B.fortKind?Math.ceil(n/32):3);for(let i=0;i<nb;i++)bats.push({t:'mil',n:Math.round(n*(i+1)/nb)-Math.round(n*i/nb),gar:false})}
   if(gar&&gar.inf)bats.push({t:'inf',n:menOf(B,'inf',gar.inf),gar:true});
   if(gar&&gar.mil)bats.push({t:'mil',n:menOf(B,'mil',gar.mil),gar:true});
   const walledIn=side===1&&(wk==='fort'||wk==='palisade');
   const perRow=walledIn?Math.min(3,bats.length):Math.min(bats.length>12?4:3,bats.length),sp=walledIn?Math.min(48,140/Math.max(1,perRow)):Math.min(110,300/Math.max(1,perRow));
-  const layout=b=>{const firingCols=Math.ceil(b.n/(b.n>40?4:3)),cols=walledIn?firingCols:Math.min(firingCols,Math.max(3,Math.ceil(b.n/6),Math.floor((sp-12)/9.4)));return{cols,firingCols,depth:(Math.ceil(b.n/cols)-1)*12}};
+  const layout=b=>{const visualCols=Math.ceil(b.n/(b.n>40?4:3)),firingCols=Math.ceil(b.n/3),cols=walledIn?Math.min(7,visualCols):Math.min(visualCols,Math.max(3,Math.ceil(b.n/6),Math.floor((sp-12)/9.4)));return{cols,firingCols,depth:(Math.ceil(b.n/cols)-1)*12}};
   const rowOffsets=[];let totalDepth=0;
   for(let start=0;start<bats.length;start+=perRow){rowOffsets.push(totalDepth);totalDepth+=Math.max(56,...bats.slice(start,start+perRow).map(b=>layout(b).depth+30))}
   // Keep ordinary deeper formations inside the field without moving either front past midfield.
@@ -67,6 +72,48 @@ function deploy(B,side,u,gar){
   if(gar&&gar.art){const y=wk==='palisade'?212:196,r=addReg(B,side,'art',true,200,y,'Wall guns');for(let i=0;i<gar.art;i++)addGun(B,r,(i-(gar.art-1)/2)*44,0)}
   if(B.regs.some(r=>r.side===side)){const gi=B.gen[side],gr=addReg(B,side,'gen',false,200,front+(side?-1:1)*95,gi?`General ${gi.name}`:'Colonel');B.general[side]=addMan(B,gr,0,0,9,gi?3:2,'general');addMan(B,gr,-9,4*(side?-1:1),9,1,'aide');addMan(B,gr,9,4*(side?-1:1),9,1,'aide')}
 }
+function deployFortSupport(B,attempt=0){
+  const occupied=[],regions={court:[140,260,62,195],left:[8,100,18,330],right:[300,392,18,330],front:[8,392,250,350],rear:[8,392,4,58]};
+  const regs=B.regs.filter(r=>r.side===1).sort((a,b)=>(b.gar?2:0)-(a.gar?2:0)||Number(isHorse(a.type))-Number(isHorse(b.type)));
+  for(const r of regs){
+    if(!attempt&&isHorse(r.type)){const men=r.men.filter(m=>!m.role);men.forEach((m,i)=>{m.ox=(i%4-1.5)*15;m.oy=-Math.floor(i/4)*18});for(const m of r.men)if(m.role){m.ox=m.role==='flag'?30:0;m.oy=m.role==='flag'?-Math.ceil(men.length/4)*18:12}}
+    if(!attempt&&isGun(r.type)){const guns=r.men.filter(m=>m.crew);guns.forEach((m,i)=>{m.ox=(i%Math.min(8,guns.length)-(Math.min(8,guns.length)-1)/2)*28;m.oy=-Math.floor(i/Math.min(8,guns.length))*26})}
+    const pad=(isHorse(r.type)||r.type==='gen'?9:isGun(r.type)?9:6)*(r.displayScale||1),
+      loX=Math.min(...r.men.map(m=>m.ox))-pad,hiX=Math.max(...r.men.map(m=>m.ox))+pad,
+      loY=Math.min(...r.men.map(m=>m.oy))-pad,hiY=Math.max(...r.men.map(m=>m.oy))+pad;
+    const lanes=isHorse(r.type)?['left','right','rear','front']:['court','left','right','rear','front'];let placed=false;
+    for(const lane of lanes){const [l,h,t,b]=regions[lane];
+      for(let y=b-hiY;y>=t-loY&&!placed;y-=3)for(let x=l-loX;x<=h-hiX&&!placed;x+=3){
+        const box=[x+loX,x+hiX,y+loY,y+hiY];
+        if(occupied.some(o=>box[0]<o[1]+3&&box[1]>o[0]-3&&box[2]<o[3]+3&&box[3]>o[2]-3))continue;
+        r.x=x;r.y=y;r.outwork=lane!=='court';occupied.push(box);placed=true;
+      }if(placed)break;
+    }
+    // Extreme custom armies shrink their tactical figures and spacing together;
+    // never create invisible, unreachable off-field reserves.
+    if(!placed){
+      if(attempt>=24)throw new Error('Fort deployment exceeds battlefield capacity');
+      for(const u of regs){u.displayScale=(u.displayScale||1)*.88;for(const m of u.men){m.ox*=.88;m.oy*=.88;if(m.l)m.l=m.l.map(v=>v*.88);if(m.c)m.c=m.c.map(v=>v*.88)}for(const c of u.crews){c.ox*=.88;c.oy*=.88}}
+      return deployFortSupport(B,attempt+1);
+    }
+    for(const m of r.men){m.x=m.px=r.x+m.ox;m.y=m.py=r.y+m.oy}
+    for(const c of r.crews){c.x=c.gun.x+c.ox;c.y=c.gun.y+c.oy}
+  }
+}
+function terrainCover(B,r){
+  if(B.terrain==='hills'&&((r.x-200)/190)**2+((r.y-205)/82)**2<=1)return .85;
+  if(B.groves?.some(([x,y,rx,ry])=>((r.x-x)/rx)**2+((r.y-y)/ry)**2<=1))return .8;
+  return 1;
+}
+function frontVector(r){const a=r.facing??(r.side===0?-Math.PI/2:Math.PI/2);return{x:Math.cos(a),y:Math.sin(a)}}
+function formationOffset(r,q){const a=(r.facing??(r.side===0?-Math.PI/2:Math.PI/2))-(r.side===0?-Math.PI/2:Math.PI/2),c=Math.cos(a),s=Math.sin(a);return[q[0]*c-q[1]*s,q[0]*s+q[1]*c]}
+function faceFormation(r,x,y,manual=true){
+  if(!isFoot(r.type)||r.broken||r.routing||Math.hypot(x-r.x,y-r.y)<1)return false;
+  r.manualFace=manual;r.facing=Math.atan2(y-r.y,x-r.x);r.goal=null;r.forced=null;r.ord='stand';r.dug=false;r.digT=0;
+  r.formT=0;r.forming=true;r.formProgress=0;
+  for(const m of r.men){const q=formationOffset(r,r.form==='column'?m.c:m.l);m.ox=q[0];m.oy=q[1]}return true;
+}
+function inFireArc(r,t){const f=frontVector(r),d=Math.hypot(t.x-r.x,t.y-r.y)||1;return ((t.x-r.x)*f.x+(t.y-r.y)*f.y)/d>=.25}
 function operational(m){return m.alive&&(!m.crew||m.crew.some(c=>c.alive))}
 function battleEvent(B,text){B.events.push(text);if(B.fx)B.fx.banner(text)}
 const sideName=s=>s?'Defenders':'Attackers';
@@ -101,6 +148,9 @@ function battleAdvice(B,r){
 
   if(fixingBayonets(B,r))out.push(`Fixing bayonets · ${Math.ceil(r.fixUntil-B.t)}s: halted, no firing.`);
   else if(r.bayonetsFixed)out.push(bayonetBraced(B,r)?'Bayonets fixed: +25% melee effect; braced line takes 40% fewer frontal cavalry melee hits. Flanks remain exposed.':'Bayonets fixed: +25% melee effect. Hold a steady line with morale 30+ to brace against frontal cavalry.');
+  if(terrainCover(B,r)<1)out.push(`Terrain cover: incoming hit probability ×${terrainCover(B,r)} at this position, for either army.`);
+  if(r.facing!=null&&!inFireArc(r,tg||r))out.push('Target outside the front firing arc. Use Face toward… to turn the line.');
+  if(r.outwork)out.push('Supporting troops deployed outside the small fort; wall cover applies only inside.');
   if(r.forming)out.push(`Forming ${r.form}: ${Math.round((r.formProgress||0)*100)}% in place. Muskets wait until the ranks are ready.`);
   if(ordOf(B,r)==='ready')out.push('Fire when ready: hold position, form a line, and fire on a clear target in range after reloading.');
   if(r.atWall)out.push('Blocked by intact walls: open a breach with guns, then move through it.');
@@ -157,25 +207,25 @@ function kill(B,m,shock,source){if(!m.alive)return;m.hitT=B.t;const sx=source?.x
   else if(m.role==='officer'){r.mor-=12;battleInsight(B,`officer-${r.id}`,`${formationName(r)} lost its officer: −12 morale and about 22% less effective fighting.`,3)}
   else if(m.role==='drum'){r.mor-=5;r.drumUntil=0;battleInsight(B,`drum-${r.id}`,`${formationName(r)} lost its drummer: −5 morale, drum recovery and Drum rally stopped.`,3)}}
 function cover(B,r,shell){
-  let c=r.side===1?(B.terrain==='forest'?.8:B.terrain==='hills'?.85:1)*1:1;
+  let c=terrainCover(B,r);
   if(r.side!==1&&isHorse(r.type)&&r.mode==='charge')c*=.8;
   if(isHorse(r.type)&&ordOf(B,r)==='flank')c*=r.flanked?.7:.55;
   if(r.dug)c*=.65;
-  if(r.type==='mil'&&(r.dug||r.side===1&&(B.terrain==='forest'||!!B.fortKind)))c*=.8;
-  if(!shell&&B.cover&&r.side===1&&inside(B,r.x,r.y))c*=B.cover+(1-B.cover)*(1-B.wallHp/(B.wallMax||1));
+  if(r.type==='mil'&&(r.dug||terrainCover(B,r)===.8||B.fortKind&&inside(B,r.x,r.y)))c*=.8;
+  if(!shell&&B.cover&&inside(B,r.x,r.y))c*=B.cover+(1-B.cover)*(1-B.wallHp/(B.wallMax||1));
   return c;
 }
 // attacks that land on a unit's side or rear hit harder and shake morale more
 function flankMult(a,t){
-  const fy=t.side===0?-1:1,dx=a.x-t.x,dy=a.y-t.y,L=Math.hypot(dx,dy)||1,c=dy/L*fy;
+  const f=frontVector(t),dx=a.x-t.x,dy=a.y-t.y,L=Math.hypot(dx,dy)||1,c=(dx*f.x+dy*f.y)/L;
   return c>.5?1:c>-.3?1.5:2;
 }
 function changeFormation(r,form){
   if(!isFoot(r.type)||!['line','column'].includes(form))return;
-  if(r.form!==form||r.men.some(m=>m.alive&&Math.hypot(m.x-r.x-m[form==='line'?'l':'c'][0],m.y-r.y-m[form==='line'?'l':'c'][1])>4)){
+  if(r.form!==form||r.men.some(m=>{const q=formationOffset(r,m[form==='line'?'l':'c']);return m.alive&&Math.hypot(m.x-r.x-q[0],m.y-r.y-q[1])>4})){
     r.form=form;r.formT=0;r.formSw=0;r.forming=true;r.formProgress=0;
   }
-  for(const m of r.men){const q=form==='line'?m.l:m.c;m.ox=q[0];m.oy=q[1]}
+  for(const m of r.men){const q=formationOffset(r,form==='line'?m.l:m.c);m.ox=q[0];m.oy=q[1]}
 }
 function orderFormation(r,form){if(!isFoot(r.type)||!['line','column','auto'].includes(form))return;if(form==='auto'){r.formOrder=null;return}r.formOrder=form;changeFormation(r,form)}
 function ordOf(B,r){return r.ord||B.orders[r.side][grp(r.type)]}
@@ -204,20 +254,29 @@ function moveToward(B,r,tx,ty,sp,dt,stop){
   if(walled&&inside(B,nx,ny)!==inside(B,r.x,r.y)&&!nearBreach(B,nx,ny,16)){r.atWall=true;return false}
   r.x=nx;r.y=ny;r.moving=true;return false}
 function strike(B,a,b,dt){
-  const fm=a.flanked&&isHorse(a.type)?Math.max(2.4,flankMult(a,b)):flankMult(a,b),rate=eff(B,a)*BT.melee*dt*MELEE[a.type][b.type]*fm*Math.sqrt(cover(B,b))*bayonetMeleeFactor(B,a,b);
+  const fm=flankMult(a,b),rate=eff(B,a)*BT.melee*dt*MELEE[a.type][b.type]*fm*Math.sqrt(cover(B,b))*bayonetMeleeFactor(B,a,b);
   if(isHorse(a.type)&&bayonetBraced(B,b)&&flankMult(a,b)===1)battleInsight(B,`bayonet-brace-${b.id}`,`${formationName(b)} met cavalry frontally with fixed bayonets: 40% fewer cavalry melee hits while the line held.`,3);
-  for(const m of a.men)if(m.alive&&Math.random()<rate){const v=rndAlive(b);if(v){kill(B,v,fm,{reg:a,kind:'melee',flank:fm});if(B.fx&&Math.random()<.3)B.fx.spark(v.x,v.y)}}
+  for(const m of a.men)if(operational(m)&&Math.random()<rate){const v=rndAlive(b);if(v){kill(B,v,fm,{reg:a,kind:'melee',flank:fm});if(B.fx&&Math.random()<.3)B.fx.spark(v.x,v.y)}}
 }
-function melee(B,r,tg,dt){const key=r.id<tg.id?r.id+'-'+tg.id:tg.id+'-'+r.id;if(B.pairs.has(key))return;B.pairs.add(key);r.melee=tg.melee=true;
-  if(isFoot(r.type))r.bayonet=true;if(isFoot(tg.type))tg.bayonet=true;r.dug=tg.dug=false;strike(B,r,tg,dt);strike(B,tg,r,dt)}
+function melee(B,r,tg,dt){
+  if(B.fortKind&&inside(B,r.x,r.y)!==inside(B,tg.x,tg.y)){
+    // Find the wall between the formation anchors. Close range alone cannot bypass it.
+    let lo=0,hi=1;const start=inside(B,r.x,r.y);
+    for(let i=0;i<12;i++){const t=(lo+hi)/2;if(inside(B,r.x+(tg.x-r.x)*t,r.y+(tg.y-r.y)*t)===start)lo=t;else hi=t}
+    if(!nearBreach(B,r.x+(tg.x-r.x)*hi,r.y+(tg.y-r.y)*hi,16)){r.atWall=tg.atWall=true;return false}
+  }
+  const key=r.id<tg.id?r.id+'-'+tg.id:tg.id+'-'+r.id;if(B.pairs.has(key))return true;B.pairs.add(key);r.melee=tg.melee=true;
+  if(isFoot(r.type))r.bayonet=true;if(isFoot(tg.type))tg.bayonet=true;r.dug=tg.dug=false;strike(B,r,tg,dt);strike(B,tg,r,dt);return true}
 function volley(B,r,tg,d,range,base,ranks,only){
   const fm=flankMult(r,tg),p=eff(B,r)*base*(1.6-d/range)*cover(B,tg)*fm*(isHorse(tg.type)&&isFoot(r.type)?1.6:1)*(isGun(tg.type)?.3:1)*(r.type==='mil'?.38:1);
   let k=0;for(const m of r.men){if(!m.alive||m.rank>ranks||(only!=null&&m.rank!==only))continue;m.shotT=B.t;if(B.fx)B.fx.shot(m,r.side,k++%2===0);if(Math.random()<p){const v=rndAlive(tg);if(v)kill(B,v,fm,{reg:r,kind:'musket',flank:fm})}}
   if(k&&B.fx&&B.fx.volley)B.fx.volley(r,k);
   r.fat=Math.min(100,r.fat+2);r.fired=true;if(isFoot(r.type))B.lastVolley=B.t;
 }
-function masked(B,r,tg){for(const o of B.regs){if(o===r||o.side!==r.side||!o.n||o.type==='gen'||isGun(o.type)||o.broken)continue;
-    if((o.y-r.y)*(tg.y-r.y)>0&&Math.abs(o.y-r.y)>12&&Math.abs(o.y-r.y)<Math.abs(tg.y-r.y)-10&&Math.abs(o.x-r.x)<42)return true}return false}
+function masked(B,r,tg){const dx=tg.x-r.x,dy=tg.y-r.y,L=Math.hypot(dx,dy)||1;
+  for(const o of B.regs){if(o===r||o.side!==r.side||!o.n||o.type==='gen'||isGun(o.type)||o.broken)continue;
+    const along=((o.x-r.x)*dx+(o.y-r.y)*dy)/L,across=Math.abs((o.x-r.x)*dy-(o.y-r.y)*dx)/L;
+    if(along>12&&along<L-10&&across<42)return true}return false}
 function lineFactor(B,r){const back=r.side===0?1:-1;let s=0,k=0;for(const o of B.regs)if(o.side===r.side&&o.n&&isFoot(o.type)&&!o.broken&&!o.gar&&o.row===r.row){s+=o.y;k++}
   if(k<2)return 1;const ahead=(s/k-r.y)*back;return ahead>8?.25:ahead>3?.6:ahead<-6?1.25:1}
 function waypoint(r,tg,w){const out=tg.x<FW/2?-1:1;return{x:clamp(tg.x+out*w,14,FW-14),y:tg.y}}
@@ -225,7 +284,7 @@ function foot(B,r,tg,d,dt){
   const o=ordOf(B,r);let cavNear=false;
   if(r.goal){if(moveToward(B,r,r.goal.x,r.goal.y,BT.infSpeed,dt,4)){r.goal=null;r.ord='hold'}}
   else{
-    if(d<22){melee(B,r,tg,dt);return}
+    if(d<22&&melee(B,r,tg,dt))return;
     if(o!=='ready'&&o!=='hold'&&o!=='dig'&&o!=='stand'&&!isGun(tg.type)){const gun=B.regs.find(e=>e.side!==r.side&&e.n&&isGun(e.type)&&Math.hypot(e.x-r.x,e.y-r.y)<95);if(gun&&!r.gar){r.target=tg=gun;d=Math.hypot(gun.x-r.x,gun.y-r.y)}}
     cavNear=B.regs.some(e=>e.side!==r.side&&e.n&&isHorse(e.type)&&e.mode==='charge'&&Math.hypot(e.x-r.x,e.y-r.y)<70);
     const deploying=(r.forming||r.form==='line'&&r.formT<2.6)&&o!=='charge'&&!r.bayonet;
@@ -242,7 +301,7 @@ function foot(B,r,tg,d,dt){
   }
   r.reload-=dt*(1-r.fat*.004);
   if(d<=firingRange(r)&&r.reload<=0&&r.form!=='column'&&masked(B,r,tg))r.maskedSeconds=(r.maskedSeconds||0)+dt;
-  if(d<=firingRange(r)&&r.reload<=0&&!masked(B,r,tg)&&(r.form!=='column')&&!r.forming&&(!r.form||r.formT>2.6)){const rk=(r.rankTurn=((r.rankTurn||0)+1)%3);volley(B,r,tg,d,firingRange(r),BT.infHit*1.33,2,rk);r.reload=BT.infReload*.5*(.9+Math.random()*.2)*(cavNear&&isHorse(tg.type)?.7:1)}
+  if(d<=firingRange(r)&&r.reload<=0&&inFireArc(r,tg)&&!masked(B,r,tg)&&(r.form!=='column')&&!r.forming&&(!r.form||r.formT>2.6)){const rk=(r.rankTurn=((r.rankTurn||0)+1)%3);volley(B,r,tg,d,firingRange(r),BT.infHit*1.33,2,rk);r.reload=BT.infReload*.5*(.9+Math.random()*.2)*(cavNear&&isHorse(tg.type)?.7:1)}
 }
 function horse(B,r,tg,d,dt){
   let o=ordOf(B,r);
@@ -258,7 +317,7 @@ function horse(B,r,tg,d,dt){
       if(moveToward(B,r,r.flankPoint.x,r.flankPoint.y,BT.cavSpeed*2.1,dt,12)||Math.hypot(r.x-r.flankPoint.x,r.y-r.flankPoint.y)<12.1)r.flanked=true;return}
     r.mode='charge';if(d<20){melee(B,r,tg,dt);return}moveToward(B,r,tg.x,tg.y,BT.cavSpeed*(r.type==='hus'?1.2:1),dt,16);return}
   if(o==='shoot'){r.mode='wait';const R=firingRange(r);
-    if(d<24){melee(B,r,tg,dt);return}
+    if(d<24&&melee(B,r,tg,dt))return;
     if(d>R*.9)moveToward(B,r,tg.x,tg.y,BT.cavSpeed*.5,dt,R*.8);
     r.reload-=dt;if(d<=R&&r.reload<=0){volley(B,r,tg,d,R,r.type==='cav'?.07:.05,1);r.reload=3.2}}
 }
@@ -294,12 +353,13 @@ function guns(B,r,tg,d,dt){
 // howitzers travel limbered on a wagon, must unlimber (deploy) before firing, and lob shells that burst behind walls
 function howitzer(B,r,tg,d,dt){
   const walls=ordOf(B,r)==='walls'&&B.wallHp>0&&r.side===0,aimD=walls?Math.hypot(wallPoint(B,r).x-r.x,wallPoint(B,r).y-r.y):d;
-  if(r.hs==='limber'){if(ordOf(B,r)==='stand'&&aimD>BT.howRange)return;if(aimD>BT.howRange*.9)moveToward(B,r,tg.x,tg.y,6,dt,BT.howRange*.85);else{r.hs='deploy';r.ht=5;if(B.fx)B.fx.banner(`${r.label} unlimber`)}return}
+  if(r.hs==='limber'){const held=ordOf(B,r)==='stand';if(held&&aimD>BT.howRange)return;if(!held&&aimD>BT.howRange*.9){const aim=walls?wallPoint(B,r):tg;moveToward(B,r,aim.x,aim.y,6,dt,BT.howRange*.85)}else{r.hs='deploy';r.ht=5;if(B.fx)B.fx.banner(`${r.label} unlimber`)}return}
   if(r.hs==='deploy'){r.ht-=dt;if(r.ht<=0){r.hs='ready';battleEvent(B,`${r.label}: deployed and ready`)};return}
   if(r.hs==='pack'){r.ht-=dt;if(r.ht<=0)r.hs='limber';return}
   if(aimD>BT.howRange*1.05&&!r.gar&&r.side===0&&ordOf(B,r)!=='stand'){r.hs='pack';r.ht=3;return}
   for(const g of r.men){if(!g.alive||g.role)continue;const crew=g.crew.filter(c=>c.alive).length;if(!crew)continue;g.cd-=dt*(1-r.fat*.003)*(.35+.65*crew/3);if(g.cd>0)continue;
     const aim=aimAt(B,r,g,tg);if(!aim)continue;const L=Math.hypot(aim.x-g.x,aim.y-g.y)||1;
+    if(L>BT.howRange)continue;
     B.shells.push({x:g.x,y:g.y,sx:g.x,sy:g.y,tx:aim.x,ty:aim.y,L,pr:0,side:r.side,reg:r,e:eff(B,r)});
     g.shotT=B.t;if(B.fx){B.fx.cannon(g,r.side,false);if(B.fx.whistle)B.fx.whistle()}g.cd=BT.howReload*(.85+Math.random()*.3);r.fired=true;
   }
@@ -346,7 +406,7 @@ function aiCommand(B,side){
 function separateRanks(B,dt){
   const grid=new Map(),cell=16;
   for(const r of B.regs)if(!isGun(r.type))for(const m of r.men)if(m.alive){
-    const bx=Math.floor(m.x/cell),by=Math.floor(m.y/cell),radius=isHorse(r.type)||r.type==='gen'?6.5:4.3;
+    const bx=Math.floor(m.x/cell),by=Math.floor(m.y/cell),radius=(isHorse(r.type)||r.type==='gen'?6.5:4.3)*(r.displayScale||1);
     for(let y=by-1;y<=by+1;y++)for(let x=bx-1;x<=bx+1;x++)for(const other of grid.get(`${r.side}:${x}:${y}`)||[]){
       const n=other.m,dx=m.x-n.x,dy=m.y-n.y,d=Math.hypot(dx,dy),gap=radius+other.radius;
       if(d>=gap)continue;const ux=d>.001?dx/d:1,uy=d>.001?dy/d:0,push=Math.min((gap-d)*.5,dt*3);
@@ -355,7 +415,7 @@ function separateRanks(B,dt){
     const key=`${r.side}:${Math.floor(m.x/cell)}:${Math.floor(m.y/cell)}`;if(!grid.has(key))grid.set(key,[]);grid.get(key).push({m,radius});
   }
 }
-function rout(B,s,reason){if(B.routing<0){B.routing=s;B.loser=s;B.endReason=reason||`${sideName(s)} withdrew from the field.`;if(B.fx)B.fx.rout(s)}}
+function rout(B,s,reason){if(B.routing<0){B.routing=s;B.loser=s;for(const r of B.regs)if(r.side===s)r.routing=true;B.endReason=reason||`${sideName(s)} withdrew from the field.`;if(B.fx)B.fx.rout(s)}}
 function stepBattle(B,dt){
   B.t+=dt;B.pairs=new Set();
   for(const r of B.regs)for(const m of r.men){m.px=m.x;m.py=m.y}
@@ -388,13 +448,14 @@ function stepBattle(B,dt){
 
     if(drumming(B,r)&&d>=28)continue;
     if(drumming(B,r)){r.drumUntil=B.t;finishDrumRally(B,r)}
+    if(isFoot(r.type)&&!r.manualFace&&!r.forming&&!inFireArc(r,tg)&&d>=22){const saved={ord:r.ord,goal:r.goal,forced:r.forced};faceFormation(r,tg.x,tg.y,false);Object.assign(r,saved)}
     if(isFoot(r.type))foot(B,r,tg,d,dt);else if(isHorse(r.type))horse(B,r,tg,d,dt);else guns(B,r,tg,d,dt);
   }
   for(const r of B.regs){
     if(isFoot(r.type)&&r.men[0]&&r.men[0].l){
       const far=!r.target||Math.hypot(r.target.x-r.x,r.target.y-r.y)>firingRange(r)*1.3,want=r.formOrder||(ordOf(B,r)==='ready'?'line':r.forming?r.form:r.moving&&!r.gar&&!r.bayonet&&!r.melee&&!r.broken&&far?'column':'line');
       if(want!==r.form){r.formSw+=dt;if(r.formSw>(want==='line'?.4:1)){changeFormation(r,want)}}else r.formSw=0;
-      r.formT+=dt;for(const m of r.men){const q=r.form==='column'?m.c:m.l;m.ox=q[0];m.oy=q[1]}}
+      r.formT+=dt;for(const m of r.men){const q=formationOffset(r,r.form==='column'?m.c:m.l);m.ox=q[0];m.oy=q[1]}}
     if(r.moving&&r.dug){r.dug=false;r.digT=0}
     const load=r.melee?10:r.moving?(isHorse(r.type)&&r.mode==='charge'?6:r.bayonet?4:1.2):r.fired?.3:-3;
     r.fat=clamp(r.fat+load*dt,0,100);

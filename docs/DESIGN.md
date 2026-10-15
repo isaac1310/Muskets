@@ -116,11 +116,11 @@ One resource, **gold**, plus **people** (needed to recruit) and **popularity**.
 ### The field
 - **Camera**: low-angle view. The enemy's side recedes; figures stand upright and shrink with distance.
 - **Following**: the camera follows the fighting and zooms in as the lines close.
-- **Pace**: infantry marches at 6 paces a second, in step; cavalry charges at 25. Guns are dragged forward at 4, howitzers at 6.
+- **Pace**: infantry base speed is 3.2 paces per simulation second, modified by formation and fatigue; cavalry base charge speed is 12. Guns are dragged forward at 4, howitzers at 6.
 - **Terrain**:
   - open ground: no bonus for either side;
-  - forest: defenders take 28% fewer hits;
-  - hills: defenders take 24% fewer hits;
+  - forest: either side takes 20% fewer hits while its formation anchor occupies a marked grove;
+  - hills: either side takes 15% fewer hits while occupying the raised ellipse;
   - river: a band across the field; troops wade at 45% speed.
 - **Walls**:
 
@@ -195,9 +195,11 @@ One resource, **gold**, plus **people** (needed to recruit) and **popularity**.
 - **Wavering**: below 30 a unit fights at 60%.
 - **Breaking**: below 8 it runs. It rallies above 45, helped by its flag, its drum and its general.
 - **Rout**: an army whose steady strength drops below 35% routs.
-- **Time limit**: after 260 seconds the stronger side holds the field.
+- **Time limit**: after 600 simulation seconds, the army retaining the larger fraction of its original steady strength holds the field; ties favour defenders.
 
-### Balance (measured by `tools/battletune.js`)
+### Historical balance (before the 15 October fixes)
+
+These older samples describe an earlier rule set and are retained as history. Use [the current sweep](GRAPHICS_GAMEPLAY_SWEEP.md) for present diagnostics. The militia “equal gold” label below reflected an older price.
 
 60 battles per matchup, October 2026. Even matchups were also run for 120 battles each; those longer results appear in parentheses. The largest even matchup was sampled 360 more times and gave 58%.
 
@@ -422,3 +424,22 @@ Validation: campaign options/expansion, peace/levy/animation, engagement, battle
 
 
 Strategy-map selection can be cancelled by tapping the selected army's province again, choosing Deselect army, or pressing Escape with the map active. Deselecting clears movement highlights and half-army mode without spending moves. Diplomacy now includes a collapsible military-power ranking and comparison bars: player power is exact; rival power rounds to 10, equal estimates share a rank, and each entry lists controlled provinces. This compares field armies; spy reports remain the source of exact rival army composition.
+
+## Rule corrections — 15 October 2026
+
+Howitzers obey their 240-pace range on either side and deploy without moving under Hold position. All foot soldiers participate in three firing cohorts even when their visual formation has more ranks. Cavalry melee uses current flank geometry (×1.5 side, ×2 rear); completing a flank waypoint grants no permanent damage multiplier. Intact walls block melee until a nearby breach opens, while musket fire remains possible. Abandoned guns cannot retaliate.
+
+Merged armies obey their resulting movement allowance and accumulated march distance, and entering a river ends movement even when merging. Wage desertion is rounded across the crown before allocating losses to armies, with at least one unit lost for a nonempty unpaid force; splitting detachments cannot eliminate desertion. Diplomatic offers become invalid when their relationship prerequisites change.
+
+See [the sweep report](GRAPHICS_GAMEPLAY_SWEEP.md) for animation changes, completed terrain/facing implementation, repeatable balance measurements and validation limits.
+
+
+## Graphics and strategy follow-up — 15 October 2026
+
+Small forts use a shared figure-representation scale (at most 180 nominal defender figures before staff/gun rounding), measured courtyard/exterior placement, and adaptive figure/spacing reduction for extreme custom armies. Supporting troops outside the walls receive no wall cover. Courtyard building art yields to troop placement. Capital cities retain their larger deployment area.
+
+Forest cover regions are shared by rendering and simulation; hill cover matches the raised ellipse (centre 200,205, radii 190,82). Cover is positional for both sides. Infantry have a front vector, rotated line/column offsets and a front firing arc (dot product ≥0.25). Face toward halts and reforms infantry; the existing formation completion and firing gates apply. Automatic commands turn as needed, while explicit facing remains held until replaced. Bayonet defence and flank/rear multipliers use that vector. Friendly fire masking measures the actual target ray.
+
+Campaign presentation interpolates friendly arrivals without delaying state changes. Completion feedback waits behind reports and season processing, honours reduced motion and clears on a new campaign. All overlays have focus isolation, keyboard containment and focus restoration.
+
+See the sweep report for the current paired-seed balance results and cost comparisons. These supersede older unseeded diagnostic tables; human playtesting remains necessary.
