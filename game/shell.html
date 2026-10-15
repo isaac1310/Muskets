@@ -115,6 +115,7 @@ canvas{display:block;touch-action:manipulation}
 .htitle{font-family:var(--f-display);font-size:clamp(44px,13vw,72px);line-height:.92;color:#f3e3b8;text-shadow:0 3px 18px rgba(0,0,0,.8);margin:0;text-wrap:balance}
 .hsub{font-family:var(--f-body);font-style:italic;color:#e6d7b4;font-size:15px;text-shadow:0 2px 10px rgba(0,0,0,.9);margin:0}
 .hmenu{display:flex;flex-direction:column;gap:8px}
+.hver{font-family:var(--f-body);font-size:12px;color:#cdbf9f;opacity:.75;text-align:center;margin:4px 0 0;text-shadow:0 1px 6px rgba(0,0,0,.9)}
 .hmenu .btn{background:rgba(26,21,16,.82);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:12px 14px;font-family:var(--f-display);font-size:19px;text-align:left;border-color:rgba(207,169,94,.45)}
 .hmenu .btn.brass{background:var(--brass);color:var(--brass-ink)}
 .hmenu .btn small{display:block;font-family:var(--f-ui);font-size:11.5px;opacity:.75;margin-top:2px}
@@ -191,6 +192,7 @@ summary{cursor:pointer;color:var(--brass);padding:8px 0;font-size:13px;line-heig
 <div id="home" role="dialog" aria-modal="true" aria-label="Musket and Crown main menu"><canvas id="homecv" aria-hidden="true"></canvas><div class="hwrap">
   <div><h1 class="htitle">Musket &amp; Crown</h1><p class="hsub">Six crowns, one continent. From 1740, until one stands.</p></div>
   <div class="hmenu" id="hmenu"></div>
+  <p class="hver" id="hver"></p>
 </div></div>
 <div id="battle" role="dialog" aria-modal="true" aria-labelledby="btitle" hidden>
   <div class="bhead"><div><div class="btitle" id="btitle"></div><div class="bsub" id="bsub"></div><div id="bnotice" role="status" aria-live="polite">Give orders to your selected troops</div></div><div class="bstat" id="bstat"></div></div>

@@ -29,6 +29,10 @@ art["effects"] = {name: image_data(art_dir / "effects" / f"{name}.webp") for nam
 art["buildings"] = {name: image_data(art_dir / "buildings" / f"{name}.webp") for name in ("timber-cottage", "stone-townhouse", "timber-cottage-destroyed", "stone-townhouse-destroyed")}
 art["trees"] = {name: image_data(art_dir / "trees" / f"{name}.webp") for name in ("oak", "pine")}
 art["walls"] = {name: image_data(art_dir / "walls" / f"{name}.webp") for name in ("stone", "timber")}
+import hashlib, datetime
+version = (root / "VERSION").read_text().strip()
+stamp = hashlib.md5((script + version).encode()).hexdigest()[:7]
+script = script.replace("/*__VERSION__*/'dev'", json.dumps(f"{version} · {stamp} · {datetime.date.today().isoformat()}"))
 script = script.replace("/*__REALISTIC_ART__*/null", json.dumps(art, separators=(",", ":")))
 pop = g / "brains.json"
 if pop.exists():
