@@ -1916,7 +1916,7 @@ let BV=null;
 const bcv=$('bcv'),bctx=bcv.getContext('2d');
 function sizeBattle(v){
   const field=bcv.parentElement,wide=!!v.expanded&&innerWidth>=1000,aw=Math.min(innerWidth-32,wide?2400:1100,field.clientWidth||1100),ah=Math.max(80,(field.clientHeight||innerHeight-235)-2);
-  const s=Math.max(.12,Math.min(aw/FW,ah/FH)),dpr=Math.min(2,devicePixelRatio||1),width=wide?aw:FW*s;
+  const s=Math.max(.12,Math.min(aw/FW,ah/FH)),dpr=Math.min(2,devicePixelRatio||1),width=wide?Math.min(aw,FW*s*2.4):FW*s;
   v.viewW=width/s;
   if(v.ground&&Math.abs(v.s-s)<.001&&bcv.width===Math.round(width*dpr))return;
   v.s=s;bcv.width=Math.round(width*dpr);bcv.height=Math.round(FH*s*dpr);bcv.style.width=Math.round(width)+'px';bcv.style.height=Math.round(FH*s)+'px';
@@ -2011,7 +2011,7 @@ function drawSiegeSite(g,kind,r,houses=[],regs=[]){
     if(regs.some(r=>r.side===1&&r.men.some(m=>m.x>x-8&&m.x<x+w+8&&m.y>y-12&&m.y<y+h+8)))return;
     houses.push({x,y,w,h,tile});
     const im=BUILDING_IMAGES?.[tile?'timber-cottage':'stone-townhouse'];
-    if(im?.complete&&im.naturalWidth){g.fillStyle='rgba(19,18,14,.27)';g.beginPath();g.ellipse(x+w*.58,y+h*.92,w*.8,h*.42,0,0,7);g.fill();
+    if(im?.complete&&im.naturalWidth){g.fillStyle='rgba(19,18,14,.27)';g.beginPath();g.ellipse(x+w*.58,y+h*.92,w*1.2,h*.6,0,0,7);g.fill();
       return}
     g.fillStyle='rgba(22,20,15,.35)';g.fillRect(x+2,y+4,w,h);
     g.fillStyle='#b9aa8e';g.fillRect(x,y,w,h);g.strokeStyle='#5b5549';g.lineWidth=.7;g.strokeRect(x,y,w,h);
@@ -2568,7 +2568,8 @@ function drawBattle(v){
     for(const m of r.men)if(m.alive){const alpha=v.paused||B.done?1:clamp((v.acc||0)*30,0,1),q=P((m.px??m.x)+(m.x-(m.px??m.x))*alpha,(m.py??m.y)+(m.y-(m.py??m.y))*alpha);list.push([q[1],m,r,N,dir,q[0],q[2]*(r.displayScale||1)]);
       if(!r.broken){if(q[0]<x0)x0=q[0];if(q[0]>x1)x1=q[0];if(q[1]<y0)y0=q[1];if(q[1]>y1)y1=q[1]}}}
   if(x0>x1){x0=0;x1=FW;y0=0;y1=FH}
-  const zt=clamp(Math.min((v.viewW||FW)/Math.max(110,x1-x0+30),FH/Math.max(170,y1-y0+50)),1,3.6),cam=v.cam||(v.cam={z:zt,x:(x0+x1)/2,y:(y0+y1)/2});
+  const zmin=Math.max(1,(v.viewW||FW)/FW),zt=clamp(Math.min((v.viewW||FW)/Math.max(110,x1-x0+30),FH/Math.max(170,y1-y0+50)),zmin,Math.max(3.6,zmin)),cam=v.cam||(v.cam={z:zt,x:(x0+x1)/2,y:(y0+y1)/2});
+  if(v.manual)v.manual.z=Math.max(v.manual.z,zmin);
   if(v.manual){cam.z+=(v.manual.z-cam.z)*.3;cam.x+=(v.manual.x-cam.x)*.3;cam.y+=(v.manual.y-cam.y)*.3}
   else{cam.z+=(zt-cam.z)*.04;cam.x+=((x0+x1)/2-cam.x)*.05;cam.y+=((y0+y1)/2-12-cam.y)*.05}
   const vw=(v.viewW||FW)/cam.z,vh=FH/cam.z,L=vw>=FW?(FW-vw)/2:clamp(cam.x-vw/2,0,FW-vw),Tp=clamp(cam.y-vh/2,v.fortCam?-100:0,FH-vh);v.view={L,Tp,z:cam.z};
@@ -2612,7 +2613,7 @@ function drawBattle(v){
       c.save();if(selOf(v).some(u=>{const q=P(u.x,u.y);return Math.abs(q[0]-px)<h*.55&&q[1]<py&&q[1]>py-h}))c.globalAlpha=.25;
       if(im?.complete&&im.naturalWidth){const w=h*im.naturalWidth/im.naturalHeight;c.drawImage(im,px-w*.5,py-h,w,h)}
       else{c.fillStyle='#3c5732';c.beginPath();c.arc(px,py-h*.6,h*.36,0,7);c.fill();c.fillStyle='#59442c';c.fillRect(px-.7*s,py-h*.5,1.4*s,h*.5)}c.restore();continue}
-    if(r&&r.house){const h=r.house,base=h.tile?'timber-cottage':'stone-townhouse',im=BUILDING_IMAGES?.[h.hit?base+'-destroyed':base];if(im?.complete&&im.naturalWidth){const w=h.w*1.34*s,ht=h.h*2.08*s;c.drawImage(im,px-w*.5,py-ht,w,ht)}continue}
+    if(r&&r.house){const h=r.house,base=h.tile?'timber-cottage':'stone-townhouse',im=BUILDING_IMAGES?.[h.hit?base+'-destroyed':base];if(im?.complete&&im.naturalWidth){const w=h.w*2*s,ht=h.h*3.1*s;c.drawImage(im,px-w*.5,py-ht,w,ht)}continue}
     if(r&&r.wall){c.globalAlpha=1;c.setTransform(BTF[0],0,0,BTF[0],BTF[1],BTF[2]);const{q0,q1,H,broken,front}=r,h0=(broken?H*.25:H)*q0[2],h1=(broken?H*.25:H)*q1[2];
       const kind=B.fortKind,face=kind==='palisade'?(front?'#6b4a2b':'#57391f'):kind==='capital'?(front?'#a69b86':'#8c8371'):(front?'#9f9683':'#857d6c');
       c.fillStyle=broken?'#6f6450':face;c.beginPath();c.moveTo(q0[0],q0[1]);c.lineTo(q1[0],q1[1]);c.lineTo(q1[0],q1[1]-h1);c.lineTo(q0[0],q0[1]-h0);c.closePath();c.fill();
@@ -2797,7 +2798,7 @@ function chooseWallPoint(v,x,y){
 // zoom and pan: pinch or wheel to zoom, drag to pan, Follow to return to the automatic camera
 const PTR=new Map();let pinch0=0,dragged=false;
 function camManual(v){if(!v.manual){const c=v.cam||{z:1,x:FW/2,y:FH/2};v.manual={z:c.z,x:c.x,y:c.y}}$('bzauto').classList.remove('brass');return v.manual}
-function camZoom(v,f){const m=camManual(v);m.z=clamp(m.z*f,1,5)}
+function camZoom(v,f){const m=camManual(v);m.z=clamp(m.z*f,Math.max(1,(v.viewW||FW)/FW),5)}
 function camFort(v){if(!v.o.fortKind)return;v.fortCam=true;v.manual={z:v.o.fortKind==='capital'?1.28:v.o.fortKind==='palisade'?1.7:1.5,x:FW/2,y:105};$('bzauto').classList.remove('brass');$('bzfort').classList.add('brass')}
 function hitUnit(v,cx,cy){const rc=bcv.getBoundingClientRect(),sx=(cx-rc.left)/v.s,sy=(cy-rc.top)/v.s,vx=v.view.L+sx/v.view.z,vy=v.view.Tp+sy/v.view.z;
   let best=null,bd=20/Math.sqrt(v.view.z)+6;for(const r of v.B.regs){if(!r.n||r.type==='gen')continue;const q=P(r.x,r.y),d=Math.hypot(q[0]-vx,q[1]-4*q[2]-vy);if(d<bd){bd=d;best=r}}return{best,vx,vy}}

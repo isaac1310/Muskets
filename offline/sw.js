@@ -1,6 +1,6 @@
 // The complete game is in index.html. Cache the shell; never answer a script
 // request with that HTML, which can make service-worker updates fail offline.
-const C='musket-crown-0fb58aac';
+const C='musket-crown-148433b8';
 const FILES=['index.html','manifest.webmanifest','icon-192.png','icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('musket-crown-')&&key!==C).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
