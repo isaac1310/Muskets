@@ -39,7 +39,7 @@ const click=async(act,extra={})=>handlers.click({target:{closest:()=>({dataset:{
  await click('bselg',{g:'foot'});assert(els.bwallpoint.disabled);assert(!t.chooseWallPoint(a,point.x-40,point.y));
  a.ps=1;a.sel=[];t.renderBattleUI(a);assert(!els.bctl.innerHTML.includes('id="bwallpoint"'));
  ctx.innerWidth=1440;ctx.innerHeight=900;els.bcv.parentElement={clientWidth:1400,clientHeight:650};t.BV=a;a.manual={z:2,x:200,y:300};const originalCamera=JSON.stringify(a.manual);t.sizeBattle(a);const narrow=els.bcv.width;
- await click('bexpand');assert(a.expanded);assert(els.bcv.width>narrow*3);assert.equal(a.ground.width,narrow,'Expanded viewport keeps terrain texture dimensions separate');assert.equal(els.bexpand.textContent,'Restore view');
+ await click('bexpand');assert(a.expanded);assert(els.bcv.width>narrow*2);assert(a.viewW/400<=2.41,'Expanded view stays within a sensible zoom of the deep field');assert(a.manual.z>=a.viewW/400-1e-9,'Expanded camera never shows past the field edges');for(let i=0;i<8;i++)await click('bz',{v:'out'});assert(a.manual.z>=a.viewW/400-1e-9,'Zooming out stops at the field edges');assert.equal(a.ground.width,narrow,'Expanded viewport keeps terrain texture dimensions separate');assert.equal(els.bexpand.textContent,'Restore view');
  await click('borders');assert(a.ordersOpen);await click('borders');assert(!a.ordersOpen);
  ctx.innerWidth=500;t.sizeBattle(a);assert.equal(Math.round(a.viewW),400,'Mobile retains fitted battlefield');ctx.innerWidth=1440;t.sizeBattle(a);assert(a.viewW>400);
  await click('bexpand');assert(!a.expanded);assert.equal(els.bcv.width,narrow);assert.equal(JSON.stringify(a.manual),originalCamera,'Restoring view restores the camera');
