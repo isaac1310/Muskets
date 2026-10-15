@@ -124,6 +124,7 @@ canvas{display:block;touch-action:manipulation}
 .htitle{font-family:var(--f-display);font-size:clamp(44px,13vw,72px);line-height:.92;color:#f3e3b8;text-shadow:0 3px 18px rgba(0,0,0,.8);margin:0;text-wrap:balance}
 .hsub{font-family:var(--f-body);font-style:italic;color:#e6d7b4;font-size:15px;text-shadow:0 2px 10px rgba(0,0,0,.9);margin:0}
 .hmenu{display:flex;flex-direction:column;gap:8px}
+.hver{font-family:var(--f-body);font-size:12px;color:#cdbf9f;opacity:.75;text-align:center;margin:4px 0 0;text-shadow:0 1px 6px rgba(0,0,0,.9)}
 .hmenu .btn{background:rgba(26,21,16,.82);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:12px 14px;font-family:var(--f-display);font-size:19px;text-align:left;border-color:rgba(207,169,94,.45)}
 .hmenu .btn.brass{background:var(--brass);color:var(--brass-ink)}
 .hmenu .btn small{display:block;font-family:var(--f-ui);font-size:11.5px;opacity:.75;margin-top:2px}
@@ -202,6 +203,7 @@ summary{cursor:pointer;color:var(--brass);padding:8px 0;font-size:13px;line-heig
 <div id="home" role="dialog" aria-modal="true" aria-label="Musket and Crown main menu"><canvas id="homecv" aria-hidden="true"></canvas><div class="hwrap">
   <div><h1 class="htitle">Musket &amp; Crown</h1><p class="hsub">Six crowns, one continent. From 1740, until one stands.</p></div>
   <div class="hmenu" id="hmenu"></div>
+  <p class="hver" id="hver"></p>
 </div></div>
 <div id="battle" role="dialog" aria-modal="true" aria-labelledby="btitle" hidden>
   <div class="bhead"><div><div class="btitle" id="btitle"></div><div class="bsub" id="bsub"></div><div id="bnotice" role="status" aria-live="polite">Give orders to your selected troops</div></div><div class="bstat" id="bstat"></div></div>
@@ -298,6 +300,7 @@ function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function freshMemory(){return{games:0,aiWins:0,playerWins:0,gen:0,mix:{mil:.1,inf:.4,cav:.25,hus:0,art:.2,how:.05},firstWar:[],treaties:0,betrayals:0,
   strat:Object.fromEntries(Object.keys(STRATS).map(k=>[k,{n:0,score:0}])),pop:DEFAULT_POP.map(x=>({g:{...x.g},fit:x.fit,n:1}))}}
 let M=load(MKEY)||freshMemory();for(const t of UT)if(M.mix[t]==null)M.mix[t]=0;
+const GAME_VERSION="1.5.0 \u00b7 971cfa3 \u00b7 2026-10-15";
 const PREFS=Object.assign({watch:'all',sound:true,speed:1,musicVol:65,effectsVol:75},load(PKEY)||{});
 if(PREFS.battlePaceVersion!==2){PREFS.speed=1;PREFS.battlePaceVersion=2;store(PKEY,PREFS)}
 
@@ -2949,11 +2952,18 @@ function drawBuilding(b,cx,cy,owner){
     case'market':ctx.beginPath();ctx.arc(cx,cy,s,0,7);ctx.stroke();ctx.font=`bold ${Math.round(s*1.3)}px Georgia`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('£',cx,cy+1);break;
     case'house':ctx.beginPath();ctx.moveTo(cx-s,cy+s*.8);ctx.lineTo(cx-s,cy-s*.1);ctx.lineTo(cx,cy-s);ctx.lineTo(cx+s,cy-s*.1);ctx.lineTo(cx+s,cy+s*.8);ctx.closePath();ctx.stroke();break;
     case'village':for(const[dx,dy]of[[-.8,.2],[.5,-.2],[.2,.7]])house(cx+dx*s,cy+dy*s,s*.7,'#9b3a2c');break;
-    case'town':for(const[dx,dy,w]of[[-1,.3,.7],[0,-.4,.9],[1,.3,.7],[-.4,.9,.6],[.6,.9,.6]])house(cx+dx*s,cy+dy*s,s*w,'#6d5d52');ctx.fillStyle=INK;ctx.fillRect(cx-s*.08,cy-s*1.6,s*.16,s*.9);break;
+    case'town':{const tx=cx+s*.05,tw=s*.24;ctx.fillStyle='#b8ac94';ctx.fillRect(tx-tw,cy-s*1.45,tw*2,s*1.05);ctx.strokeRect(tx-tw,cy-s*1.45,tw*2,s*1.05);ctx.fillStyle='#3c352b';ctx.fillRect(tx-tw*.35,cy-s*1.3,tw*.7,s*.2);ctx.fillStyle='#f1e7cd';ctx.beginPath();ctx.arc(tx,cy-s*.98,tw*.42,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='#595344';ctx.beginPath();ctx.moveTo(tx-tw*1.3,cy-s*1.45);ctx.lineTo(tx,cy-s*2.15);ctx.lineTo(tx+tw*1.3,cy-s*1.45);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(tx,cy-s*2.15);ctx.lineTo(tx,cy-s*2.4);ctx.stroke();for(const[dx,dy,w]of[[-1,.3,.7],[0,-.25,.8],[1,.3,.7],[-.4,.9,.6],[.6,.9,.6]])house(cx+dx*s,cy+dy*s,s*w,'#6d5d52');break}
     case'church':ctx.strokeRect(cx-s*.7,cy-s*.1,s*1.4,s*.9);ctx.beginPath();ctx.moveTo(cx,cy-s*.1);ctx.lineTo(cx,cy-s*1.3);ctx.moveTo(cx-s*.4,cy-s*.9);ctx.lineTo(cx+s*.4,cy-s*.9);ctx.stroke();break;
     case'barracks':ctx.beginPath();ctx.moveTo(cx-s*.6,cy+s);ctx.lineTo(cx-s*.6,cy-s);ctx.stroke();ctx.fillStyle=owner!=null?NF(owner).col:INK;ctx.beginPath();ctx.moveTo(cx-s*.6,cy-s);ctx.lineTo(cx+s,cy-s*.55);ctx.lineTo(cx-s*.6,cy-s*.1);ctx.closePath();ctx.fill();ctx.stroke();break;
     case'foundry':ctx.save();ctx.translate(cx,cy);ctx.rotate(-.35);ctx.fillRect(-s,-s*.22,s*1.8,s*.44);ctx.restore();ctx.beginPath();ctx.arc(cx-s*.3,cy+s*.35,s*.42,0,7);ctx.stroke();break;
   }
+}
+function drawScaffold(cx,cy,done){
+  const s=ts*.17;ctx.save();ctx.lineWidth=Math.max(1,ts/40);ctx.strokeStyle='#6b4e2e';ctx.fillStyle='rgba(27,24,18,.2)';ctx.beginPath();ctx.ellipse(cx+s*.1,cy+s*.85,s*1.1,s*.32,0,0,7);ctx.fill();
+  const h=s*(.5+1.1*done);ctx.fillStyle='#c5b99e';ctx.fillRect(cx-s*.7,cy+s*.8-h*.7,s*1.4,h*.7);ctx.strokeStyle=INK;ctx.strokeRect(cx-s*.7,cy+s*.8-h*.7,s*1.4,h*.7);
+  ctx.strokeStyle='#8a6536';for(const x of[-.9,0,.9]){ctx.beginPath();ctx.moveTo(cx+x*s,cy+s*.85);ctx.lineTo(cx+x*s,cy+s*.8-h);ctx.stroke()}
+  for(let y=cy+s*.8-h*.35;y>cy+s*.8-h;y-=s*.45){ctx.beginPath();ctx.moveTo(cx-s*.95,y);ctx.lineTo(cx+s*.95,y);ctx.stroke()}
+  ctx.beginPath();ctx.moveTo(cx-s*.9,cy+s*.8);ctx.lineTo(cx+s*.9,cy+s*.8-h);ctx.stroke();ctx.restore();
 }
 function moveTargets(){
   const a=S.sel!=null&&armyAt(S.sel);
@@ -2984,6 +2994,7 @@ function draw(){
   for(const rt of routes()){ctx.setLineDash([ts*.12,ts*.14]);ctx.lineWidth=Math.max(1.5,ts/18);ctx.strokeStyle=rt.blocked?'#c0392b':'#f3d58a';ctx.beginPath();
     rt.path.forEach((i,k)=>{const px=G.c[i][0]*ts,py=(G.c[i][1]+.45)*ts;k?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();ctx.setLineDash([])}
   for(let p=0;p<G.n;p++){const t=T(p);if(t.b)drawBuilding(t.b,G.c[p][0]*ts,(G.c[p][1]-.32)*ts,t.o)}
+  for(const q of S.construction||[]){const t=T(q.p);if(!t||t.b)continue;drawScaffold(G.c[q.p][0]*ts,(G.c[q.p][1]-.32)*ts,Math.min(1,(S.turn-q.started)/Math.max(1,q.ready-q.started)))}
   S.cities.forEach(c=>{if(T(c.p).o!=null)return;const x=G.c[c.p][0]*ts,y=(G.c[c.p][1]-.74)*ts;
     if(c.patron!=null){ctx.fillStyle=NF(c.patron).col;ctx.beginPath();ctx.arc(x,y,ts*.08,0,7);ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=1;ctx.stroke()}
     if(c.war[0]){ctx.strokeStyle='#c0392b';ctx.lineWidth=1.6;const k=ts*.08;ctx.beginPath();ctx.moveTo(x-k,y-k);ctx.lineTo(x+k,y+k);ctx.moveTo(x+k,y-k);ctx.lineTo(x-k,y+k);ctx.stroke()}});
@@ -3317,6 +3328,7 @@ function paintHome(){
 function showHome(){
   $('home').hidden=false;syncOverlayFocus();paintHome();SND.music(true,false);
   const saved=S&&!S.over&&S.started!==false;
+  $('hver').textContent='Version '+GAME_VERSION;
   $('hmenu').innerHTML=`${saved?`<button class="btn brass" data-act="hcont">Continue<small>${S.fac[0].name} · ${dateStr()} · ${DIFF[S.diff].n}</small></button>`:''}
    <button class="btn ${saved?'':'brass'}" data-act="new">New campaign<small>Choose your crown and how hard your rivals fight</small></button>
    <button class="btn" data-act="practice">Practice battle<small>A skirmish that leaves the campaign untouched</small></button>
