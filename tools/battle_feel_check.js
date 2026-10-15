@@ -76,3 +76,28 @@ for(const type of ['cav','hus']){
   calls.length=0;ctx.drawPaintedFig(record,rider,reg,N,-1,6);assert(calls.some(p=>p[0]==='lineTo'&&p[2]===(type==='hus'?-1.8:-3.8)),'Mounted reload must still show the weapon');
 }
 console.log('Animation sweep: army-wide fleeing art, walking reload/flee strides, carbine/pistol fire and reload, and paused mounted actions pass.');
+// Ordinary falls also trail blood; the landing pool grows on simulation time only.
+const ordinary=view();ctx.body(ordinary,man,{kind:'musket'});const firstDrops=ordinary.blood.length;ctx.tickFx(ordinary,.1);assert(ordinary.blood.length>firstDrops);
+ctx.tickFx(ordinary,.76);const young=ordinary.dead[0].age;ctx.tickFx(ordinary,0);assert.equal(ordinary.dead[0].age,young);ctx.tickFx(ordinary,.1);assert(ordinary.dead[0].age>young);
+// Material fragments move, tumble, expire, stay bounded, and freeze when paused.
+for(const material of ['wood','stone','earth','metal']){const debris=view();ctx.impactFragments(debris,200,300,material,12,1,-1);const initial=JSON.stringify(debris.debris);ctx.tickFx(debris,0);assert.equal(JSON.stringify(debris.debris),initial);ctx.tickFx(debris,.2);assert.notEqual(JSON.stringify(debris.debris),initial);assert(debris.debris.every(d=>d.z>0&&Number.isFinite(d.x)&&d.material===material));for(const d of debris.debris)ctx.drawFragment(canvas,d,(x,y)=>[x,y,1]);ctx.tickFx(debris,3);assert.equal(debris.debris.length,0)}
+const capped=view();ctx.impactFragments(capped,200,300,'wood',500);assert.equal(capped.debris.length,240);capped.low=true;ctx.impactFragments(capped,200,300,'wood',100);assert.equal(capped.debris.length,90);
+// A roundshot impact reaches presentation even when a gun survives; its source has an impact direction.
+const impactB=makeBattle({att:{...zeroU(),inf:1},def:{...zeroU(),art:1},terrain:'plains'}),targetGun=impactB.regs.find(r=>r.type==='art').men.find(m=>!m.role),impacts=[];
+impactB.fx={impact:(m,dx,dy)=>impacts.push({m,dx,dy}),spark(){},death(){},crewDeath(){},banner(){}};
+const hp=targetGun.hp;ballHits(impactB,{side:0,x:targetGun.x,y:targetGun.y,dx:0,dy:-1,hit:new Set(),reg:impactB.regs[0]},.01,100);assert.equal(impacts.length,1);assert.equal(targetGun.hp,hp-1);assert(targetGun.alive);assert.equal(impacts[0].dy,-1);
+// Flag bearers use the procedural cloth even with all painted assets loaded.
+const flags=[];ctx.drawBattleFlag=(...args)=>flags.push(args);
+ctx.drawPaintedFig(canvas,{ox:2,x:200,rank:0,gait:1,walk:1,role:'flag'},{type:'inf',moving:true},N,-1,5);assert.equal(flags.length,1);assert.equal(flags[0][5],1);
+vm.runInContext(src.slice(src.indexOf('function drawBattleFlag('),src.indexOf('function figurePose(')),ctx);
+function cloth(time,moving){const path=[];const c=new Proxy({}, {get:(_,key)=>key==='createLinearGradient'?()=>({addColorStop(){}}):(...args)=>path.push([key,...args])});ctx.drawBattleFlag(c,{name:'Britain'},false,time,2,moving);return JSON.stringify(path)}
+assert.equal(cloth(2,1),cloth(2,1));assert.notEqual(cloth(2,1),cloth(2.2,1));assert.notEqual(cloth(2,0),cloth(2,1));
+// Mounted charging articulates four legs; infantry running has a visible hip swing.
+for(const type of ['inf','mil','cav','hus']){poses.length=0;ctx.drawPaintedFig(motionCanvas,{ox:0,x:200,rank:0,gait:1,walk:1,role:''},{type,moving:true,bayonet:true,mode:'charge'},N,-1,5);assert.equal(poses.filter(p=>p[0]==='drawImage'&&p.length===10).length,['cav','hus'].includes(type)?5:3);assert(poses.some(p=>p[0]==='rotate'&&Math.abs(p[1])>.4))}
+console.log('Requested effects: ordinary falling blood, spreading pools, wood/stone/earth/metal fragments, surviving cannon impacts, animated infantry flags, and infantry/cavalry charge strides pass.');
+
+const sounds=[];ctx.SND=new Proxy({}, {get:(_,name)=>(...args)=>sounds.push([name,...args])});ctx.paintCrater=()=>{};
+vm.runInContext(src.slice(src.indexOf('function fxOf('),src.indexOf('function figureScale(')),ctx);
+const intense=view();intense.g=canvas;intense.houses=[];const fx=ctx.fxOf(intense);fx.cannon({x:200,y:300,reg:{type:'how'}},0,false);assert(sounds.some(e=>e[0]==='howitzer'));fx.shell(200,300);assert(sounds.some(e=>e[0]==='howitzerImpact'));assert(intense.debris.some(d=>d.material==='metal'));assert(intense.dust.some(d=>d.vx));const dust=JSON.stringify(intense.dust);ctx.tickFx(intense,0);assert.equal(JSON.stringify(intense.dust),dust);ctx.tickFx(intense,.1);assert.notEqual(JSON.stringify(intense.dust),dust);for(let i=0;i<100;i++)fx.shell(200,300);assert(intense.boom.length<=60&&intense.dust.length<=180&&intense.debris.length<=240);
+const shellB=makeBattle({att:{...zeroU(),how:1},def:{...zeroU(),inf:1},terrain:'plains'}),whistles=[];shellB.fx={whistle:()=>whistles.push(1),banner(){}};shellB.cmdT=999;shellB.shells.push({sx:200,sy:600,tx:200,ty:100,L:500,pr:0,side:0,e:1});stepBattle(shellB,.1);assert.equal(whistles.length,0);shellB.shells[0].pr=.56;stepBattle(shellB,.01);assert.equal(whistles.length,1);stepBattle(shellB,.01);assert.equal(whistles.length,1);
+console.log('Siege spectacle: howitzer sound routing, shrapnel/dust jets, pause/particle caps and one descending whistle per shell pass.');

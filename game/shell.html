@@ -49,6 +49,9 @@ canvas{display:block;touch-action:manipulation}
 #panel h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:19px;text-wrap:balance}
 #panel p{margin:0;font-family:var(--f-body);line-height:1.5;color:var(--muted);font-size:13.5px;max-width:65ch}
 .sec{display:flex;flex-direction:column;gap:8px}
+.recruitment-unlock{border:1px solid var(--brass);border-radius:6px;padding:12px;background:var(--walnut-2)}
+.recruitment-unlock h3,.recruitment-unlock p{margin:0}
+.recruitment-unlock .recruit-status{color:var(--brass)}
 .lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
 .opt{text-align:left;display:flex;flex-direction:column;gap:2px;background:var(--walnut-2);border:1px solid var(--line);border-radius:4px;padding:7px 9px}
@@ -156,6 +159,9 @@ summary{cursor:pointer;color:var(--brass);padding:8px 0;font-size:13px;line-heig
 #bzoom{position:absolute;top:6px;right:6px;z-index:2;display:flex;gap:4px}
 #bzoom .btn{background:rgba(26,21,16,.82);min-width:34px}
 #bzoom .btn.brass{background:var(--brass)}
+#bexpand,#borders{display:none}
+@media(min-width:1000px){#bexpand{display:block}#battle.expanded{grid-template-columns:minmax(0,1fr)}#battle.expanded .bfield{grid-column:1/-1}#battle.expanded .bctl{display:none}#battle.expanded #borders{display:block}#battle.expanded.orders-open .bctl{display:flex;position:absolute;right:22px;top:132px;bottom:75px;width:300px;max-height:calc(100% - 210px)!important;background:var(--table);border:1px solid var(--line);padding:10px;z-index:4;justify-content:flex-start;box-shadow:0 8px 25px #0009}#bzoom{flex-wrap:wrap}}
+
 #bres{position:absolute;inset:auto 0;margin:auto;max-width:360px}
 @media (min-width:860px){ main{flex-direction:row;align-items:stretch} #mapwrap{align-self:flex-start;max-height:calc(100vh - 150px)} #desk{max-width:400px} }
 @media (prefers-reduced-motion:no-preference){ #toast{animation:rise .25s ease-out} @keyframes rise{from{transform:translate(-50%,8px);opacity:.3}} }
@@ -188,7 +194,7 @@ summary{cursor:pointer;color:var(--brass);padding:8px 0;font-size:13px;line-heig
 </div></div>
 <div id="battle" role="dialog" aria-modal="true" aria-labelledby="btitle" hidden>
   <div class="bhead"><div><div class="btitle" id="btitle"></div><div class="bsub" id="bsub"></div><div id="bnotice" role="status" aria-live="polite">Give orders to your selected troops</div></div><div class="bstat" id="bstat"></div></div>
-  <div class="bfield"><div id="bzoom"><button class="btn sm" data-act="bz" data-v="in" aria-label="Zoom in">+</button><button class="btn sm" data-act="bz" data-v="out" aria-label="Zoom out">−</button><button class="btn sm" data-act="bz" data-v="fort" id="bzfort" hidden>View fort</button><button class="btn sm" data-act="bz" data-v="auto" id="bzauto">Follow</button></div><canvas id="bcv" aria-label="Battlefield. Tap one of your units to command it."></canvas><div class="card" id="bres" role="dialog" aria-modal="true" aria-label="Battle result" hidden></div></div>
+  <div class="bfield"><div id="bzoom"><button class="btn sm" data-act="bexpand" id="bexpand" aria-pressed="false">Expand battlefield</button><button class="btn sm" data-act="borders" id="borders" aria-expanded="false" aria-controls="bctl">Show orders</button><button class="btn sm" data-act="bz" data-v="in" aria-label="Zoom in">+</button><button class="btn sm" data-act="bz" data-v="out" aria-label="Zoom out">−</button><button class="btn sm" data-act="bz" data-v="fort" id="bzfort" hidden>View fort</button><button class="btn sm" data-act="bz" data-v="auto" id="bzauto">Follow</button></div><canvas id="bcv" aria-label="Battlefield. Tap one of your units to command it."></canvas><div class="card" id="bres" role="dialog" aria-modal="true" aria-label="Battle result" hidden></div></div>
   <div class="bctl" id="bctl"></div>
   <div class="bquick" id="bquick"></div>
 </div>
